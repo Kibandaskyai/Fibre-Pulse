@@ -6,7 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:db": "vitest run tests/db",
+    "db:start": "supabase start -x studio,imgproxy,vector,logflare,realtime,storage-api,edge-runtime,supavisor,postgres-meta",
+    "db:reset": "supabase db reset",
+    "db:seed": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.3.1",
