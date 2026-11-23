@@ -66,7 +66,7 @@ export async function changeSubscriptionAction(_prev: ActionResult | null, formD
     const customerId = String(formData.get("customerId") ?? "");
     refresh("/subscriptions", ...(customerId ? [`/customers/${customerId}`] : []));
     const message = {
-      suspend: "Subscription suspended in FibrePulse. Disconnect on the router separately until router control is enabled.",
+      suspend: "Subscription suspended. Until the router connector is installed, also disconnect the customer on the router yourself.",
       restore: result.data === "expired" ? "Restored, but the paid period had already ended, so it is now expired." : "Subscription restored.",
       cancel: "Subscription cancelled.",
     }[action];

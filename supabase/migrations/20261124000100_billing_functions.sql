@@ -242,7 +242,7 @@ $$;
 --   * Renewal of the same package extends from the current expiry, so no
 --     paid days are lost.
 --   * Upgrade/downgrade starts the new package now for a full period.
---     ASSUMPTION (confirm with pilot ISP): no proration credit.
+--     Confirmed with the pilot ISP (23 Nov 2026): no proration credit.
 -- Always issues an invoice for the package price in the same transaction,
 -- then applies any verified unallocated payments the customer has.
 -- Never sends a command to a router.

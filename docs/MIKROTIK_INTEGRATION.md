@@ -22,4 +22,5 @@
 ## Explicit limits
 
 - No write or destructive router commands without explicit, separate authorisation.
+- Required by the pilot ISP (23 Nov 2026): suspending a subscription disconnects the customer (disable their PPPoE secret and remove the active session); restoring re-enables it. Build as a queued, audited command the connector picks up, enabled per ISP, with the result shown on the customer profile.
 - No Wi-Fi or optical signal readings unless CPE (TR-069) or OLT/ONT telemetry is connected. The UI will say so instead of showing numbers.

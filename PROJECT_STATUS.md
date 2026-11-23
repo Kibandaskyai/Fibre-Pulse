@@ -51,13 +51,13 @@ Test totals at end of Phase 1: **142 database tests, 33 unit tests, 9 browser te
 
 Test totals at end of Phase 2: **212 unit and database tests and 23 browser tests, all passing.**
 
-### Assumptions to confirm with the pilot ISP
+### Billing rules (confirmed with the user on 23 Nov 2026 unless marked)
 
-- Upgrades and downgrades start the new package immediately for a full period, with **no proration credit** for unused days.
+- Confirmed: upgrades and downgrades start the new package immediately for a full period, with **no credit** for unused days.
 - Renewing the same package adds the new period after the current expiry, so no paid days are lost.
 - Monthly packages run for one calendar month (31 Jan to 28/29 Feb), in Kenyan time.
-- Suspending in FibrePulse does **not** disconnect the customer on the router yet (router control is a later, separately authorised integration).
-- Only the ISP owner can sell packages and suspend; finance records, verifies and reverses payments.
+- Confirmed: suspending **must disconnect the customer on the router**, and restoring reconnects them. This is built in Phase 4 with the MikroTik connector (disable the PPPoE secret and drop the active session, then re-enable on restore). Until then the screen tells staff to disconnect on the router themselves.
+- Not yet confirmed: only the ISP owner can sell packages and suspend; finance records, verifies and reverses payments.
 
 ## Not built yet
 

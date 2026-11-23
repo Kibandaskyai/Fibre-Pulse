@@ -248,7 +248,7 @@ export default async function CustomerPage({
             <Card>
               <CardHeader>
                 <CardTitle>Subscription status</CardTitle>
-                <CardDescription>Changes here are recorded with your reason. They do not send commands to the router.</CardDescription>
+                <CardDescription>Changes are recorded with your reason. Suspending will disconnect the customer on the router once the FibrePulse Connector is installed; until then, disconnect them on the router yourself.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-5">
                 {perms.has("subscriptions:suspend") && live.status === "active" ? (
