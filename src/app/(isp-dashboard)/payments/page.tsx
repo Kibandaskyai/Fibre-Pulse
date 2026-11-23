@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Download, Receipt, Wallet } from "lucide-react";
+import { Download, FileCheck2, Receipt, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const invoiceStatus = s(sp.status);
   const totals = await paymentTotals(db, ctx.active.tenantId);
   const canRecord = ctx.active.permissions.has("payments:record");
+  const canReconcile = ctx.active.permissions.has("payments:reconcile");
 
   const filterParams = { verification: f.verification, method: f.method, q: f.q, from: f.from, to: f.to };
   const exportQs = new URLSearchParams(Object.entries(filterParams).filter(([, v]) => v)).toString();
@@ -46,6 +47,11 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
             <Button asChild variant="outline" size="sm">
               <Link href={`/payments/export${exportQs ? `?${exportQs}` : ""}`} prefetch={false}><Download aria-hidden /> Export CSV</Link>
             </Button>
+            {canReconcile ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href="/payments/reconcile"><FileCheck2 aria-hidden /> Reconcile statement</Link>
+              </Button>
+            ) : null}
             {canRecord ? <Button asChild size="sm"><Link href="/payments/new"><Wallet aria-hidden /> Record payment</Link></Button> : null}
           </>
         }

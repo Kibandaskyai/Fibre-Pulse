@@ -1,6 +1,6 @@
 # FibrePulse project status
 
-_Last updated: 23 November 2026 (end of Phase 2)._
+_Last updated: 23 November 2026 (end of Phase 3)._
 
 Legend: **Done and tested** · **Simulated** (works, uses labelled test data) · **Not built** (planned phase in brackets).
 
@@ -59,11 +59,31 @@ Test totals at end of Phase 2: **212 unit and database tests and 23 browser test
 - Confirmed: suspending **must disconnect the customer on the router**, and restoring reconnects them. This is built in Phase 4 with the MikroTik connector (disable the PPPoE secret and drop the active session, then re-enable on restore). Until then the screen tells staff to disconnect on the router themselves.
 - Confirmed: only the ISP owner can sell packages and suspend; finance records, verifies and reverses payments.
 
+## Phase 3: Financial intelligence
+
+| Area | Status | Evidence |
+|---|---|---|
+| Revenue functions in the database: KPIs, daily/monthly series, breakdown by package/area/method, outstanding ageing, package mix, customer growth, area list. Kenyan dates, area filter, `revenue:view` checked in SQL | Done and tested | `tests/db/revenue.test.ts` (15) |
+| Executive dashboard (`/overview`): date range and area filters; customers, verified collections, service and network KPIs; collections, 12-month trend, methods, areas, growth, package mix; recent payments, customers and alerts. Network uptime and online/offline show a dash until the connector exists (Phase 4) | Done and tested | e2e, screenshots |
+| Revenue analytics (`/revenue`): collected vs previous period, applied vs credit, invoiced, awaiting verification, outstanding and overdue, reversals and refunds, packages sold, simulated exclusions; charts; package/area/method; cash shown as "not accepted"; outstanding by age and the 20 largest balances | Done and tested | e2e `phase3.spec.ts` |
+| Statement reconciliation (`/payments/reconcile`): upload an M-Pesa paybill or bank CSV, auto-detect layout and columns, preview, then verify exact matches (reference and amount) in one audited step; lists amount mismatches, simulated hits, statement money not in FibrePulse (kept for follow-up) and recorded payments missing from the statement | Done and tested | `tests/db/reconciliation.test.ts` (9), unit parser tests, e2e |
+| Daily collections and monthly revenue reports (`/reports`) on screen, plus CSV and PDF downloads of these and of any revenue page filter | Done and tested | unit, e2e (file names, contents, `%PDF`) |
+| Network, support and BI reports | Not built (5) | `/reports` says so; no figures shown |
+
+Test totals at end of Phase 3: **248 unit and database tests and 29 browser tests, all passing.**
+
+### Reporting rules
+
+- Collected revenue = payments that are successful **and** verified against a statement. Awaiting verification, failed, reversed, refunded and simulated payments are shown separately and never added in.
+- "Applied to invoices" is what has been allocated to invoices issued in the period's payments; the rest is credit (overpayment or unlinked deposit).
+- Days and months are Kenyan calendar days; a payment at 01:30 on the 3rd counts on the 3rd even though it is the 2nd in UTC.
+- Area matches a customer's county, town or estate.
+- Reconciliation only verifies a payment when the reference, method and amount all match and the payment is successful, unverified and not simulated. Re-uploading the same statement changes nothing.
+
 ## Not built yet
 
 | Module | Phase |
 |---|---|
-| Executive dashboard charts, revenue analytics, reconciliation, CSV/PDF reports | 3 |
 | MikroTik connector agent, ingest API, router monitoring, alerts, NOC screen | 4 |
 | Support desk, field operations, notifications delivery (email/SMS), Leaflet map, BI reports | 5 |
 | Fee engine, platform invoices, agreements UI, platform revenue analytics, support-access UI | 6 |

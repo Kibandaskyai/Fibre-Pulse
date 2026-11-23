@@ -13,8 +13,11 @@ import { KENYAN_COUNTIES } from "@/lib/validation/common";
 export const IMPORT_COLUMNS = ["full_name", "phone", "email", "address", "estate", "town", "county", "status", "pppoe_username", "notes"] as const;
 export const MAX_IMPORT_ROWS = 2000;
 
-/** RFC 4180 CSV parser: quoted fields, escaped quotes, CRLF or LF. */
-export function parseCsv(text: string): string[][] {
+/**
+ * RFC 4180 CSV parser: quoted fields, escaped quotes, CRLF or LF. Blank rows
+ * are dropped unless `keepBlank` is set (to keep file line numbers).
+ */
+export function parseCsv(text: string, keepBlank = false): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";
@@ -47,7 +50,7 @@ export function parseCsv(text: string): string[][] {
     row.push(field);
     rows.push(row);
   }
-  return rows.filter((r) => r.some((c) => c.trim() !== ""));
+  return keepBlank ? rows : rows.filter((r) => r.some((c) => c.trim() !== ""));
 }
 
 export type ImportRowResult =
