@@ -29,3 +29,10 @@ Tests 5–7, 10, 12–14 belong to Phases 2–6 and will be added with those mod
 ## Proving the tests have teeth
 
 During Phase 1, RLS on `payments` was disabled temporarily; 8 tests failed immediately, then passed again once RLS was restored.
+
+## Phase 2 additions
+
+- `tests/db/billing.test.ts` (26): period end dates in EAT (month-end clamping, leap years, late-evening purchases), new/renewal/upgrade/downgrade, refusals (archived package, terminated customer, wrong role, other ISP), suspend/restore/cancel/expiry, verification and auto-allocation, part payment and credit, simulated payments, duplicate receipts, rejection, reversal, unmatched deposits, manual allocation limits, no direct writes.
+- `tests/unit/billing.test.ts`: CSV parser, import duplicate report, CSV formula escaping, package/customer/payment validation, time zone helpers, search sanitising.
+- `tests/e2e/phase2.spec.ts` (14): sell a package, invoice, record → verify → paid, duplicate reference, finance cannot sell, reversal, suspend/restore, phone search, CSV import, exports, role blocks, 501 placeholder, phone layout.
+- The browser tests create uniquely named data each run, so re-running needs no reset. `npm run db:seed` after a reset adds demo subscriptions through the real functions.

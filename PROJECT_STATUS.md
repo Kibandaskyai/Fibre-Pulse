@@ -1,6 +1,6 @@
 # FibrePulse project status
 
-_Last updated: 23 November 2026 (end of Phase 1)._
+_Last updated: 23 November 2026 (end of Phase 2)._
 
 Legend: **Done and tested** · **Simulated** (works, uses labelled test data) · **Not built** (planned phase in brackets).
 
@@ -34,11 +34,35 @@ Legend: **Done and tested** · **Simulated** (works, uses labelled test data) ·
 
 Test totals at end of Phase 1: **142 database tests, 33 unit tests, 9 browser tests, all passing.**
 
+## Phase 2: ISP business operations
+
+| Area | Status | Evidence |
+|---|---|---|
+| Packages: create, edit, stop selling, archive; price changes never alter existing subscriptions | Done and tested | e2e `phase2.spec.ts` |
+| Customers: list, search (name, number, phone in any Kenyan format, PPPoE), status/area/balance filters, profile with history tabs, add, edit, GPS for permitted roles | Done and tested | e2e, unit |
+| Customer CSV import with a check step and duplicate report (existing phone/PPPoE, repeats in file, invalid rows) | Done and tested | unit `billing.test.ts`, e2e |
+| CSV export of customers and payments, formula-injection safe | Done and tested | unit, e2e |
+| Subscriptions: activate, renew (stacks after current expiry), upgrade, downgrade, suspend/restore/cancel with audited reasons, automatic expiry | Done and tested | `tests/db/billing.test.ts`, e2e |
+| Invoices issued automatically on every purchase; one-off charges; void with reason | Done and tested | DB tests |
+| Manual payments (M-Pesa / bank / other, no cash), verification against a statement, rejection, reversal, auto-allocation oldest-first, manual allocation, linking unmatched deposits | Done and tested | DB tests, e2e |
+| Money and subscription state change only through audited database functions (direct table writes refused) | Done and tested | DB tests |
+| M-Pesa provider interface, Daraja stub and 501 placeholder routes | Placeholder | `src/lib/integrations/payments/provider.ts` |
+| Demo data: subscriptions bought through the real functions; two SIMULATED payments that can never be verified | Simulated | `npm run db:seed` |
+
+Test totals at end of Phase 2: **212 unit and database tests and 23 browser tests, all passing.**
+
+### Assumptions to confirm with the pilot ISP
+
+- Upgrades and downgrades start the new package immediately for a full period, with **no proration credit** for unused days.
+- Renewing the same package adds the new period after the current expiry, so no paid days are lost.
+- Monthly packages run for one calendar month (31 Jan to 28/29 Feb), in Kenyan time.
+- Suspending in FibrePulse does **not** disconnect the customer on the router yet (router control is a later, separately authorised integration).
+- Only the ISP owner can sell packages and suspend; finance records, verifies and reverses payments.
+
 ## Not built yet
 
 | Module | Phase |
 |---|---|
-| Customer, package, subscription screens; manual payments, invoices, allocation; CSV import/export | 2 |
 | Executive dashboard charts, revenue analytics, reconciliation, CSV/PDF reports | 3 |
 | MikroTik connector agent, ingest API, router monitoring, alerts, NOC screen | 4 |
 | Support desk, field operations, notifications delivery (email/SMS), Leaflet map, BI reports | 5 |

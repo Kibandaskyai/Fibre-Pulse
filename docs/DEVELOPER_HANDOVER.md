@@ -8,6 +8,8 @@ Start with [PROJECT_STATUS.md](../PROJECT_STATUS.md), then [SYSTEM_ARCHITECTURE.
 - Adding a permission: add it to `PERMISSIONS` and `ROLE_PERMISSIONS` in `src/lib/auth/permissions.ts` **and** to `private.role_permissions` in a new migration. `tests/db/onboarding-and-guards.test.ts` › permission matrix fails until both match.
 - Adding a tenant table: include `tenant_id`, `unique (tenant_id, id)`, composite FKs, enable RLS, write policies using `private.has_permission`, and add it to `TENANT_TABLES` in `tests/helpers/fixtures.ts` so isolation is tested automatically.
 - Business logic goes in `src/modules/<domain>/service.ts` taking a Supabase client; Server Actions stay thin.
+- Anything that moves money or changes a subscription's state is a SECURITY DEFINER function in migration `20261124000100`, which checks the permission itself and sets the audit reason. There are deliberately no direct write policies for those tables; add a function, not a policy.
+- Forms use `useFormAction` from `src/components/shared/form-bits.tsx`, which keeps typed values after a validation error (React's default form action resets the form).
 
 ## Searching for unfinished work
 

@@ -9,6 +9,7 @@ Migrations live in `supabase/migrations` and are applied in order by `supabase d
 | `20261123000300_permissions_and_rls.sql` | Role→permission matrix, RLS helper functions, guards (tenant status, platform role, last owner, technician edits, notifications), RLS enabled and policies on every table, anon revoked |
 | `20261123000400_tenant_functions.sql` | `register_tenant`, `accept_invitation`, `my_permissions`, `my_invitations` |
 | `20261123000500_platform_functions.sql` | `admin_list_tenants`, `admin_set_tenant_status` |
+| `20261124000100_billing_functions.sql` | Phase 2: period maths in EAT, subscription purchase/renewal/upgrade/downgrade, suspend/restore/cancel/expire, invoices, payment verify/reject/reverse/allocate/assign, `customer_account_summary` and `customer_directory` views. Removes direct browser writes to payments (update), allocations, reconciliation records, invoices, invoice lines and subscriptions: these change only through the functions. |
 
 ## Conventions
 
@@ -48,6 +49,8 @@ The 23 tables required by the spec, plus additions marked (+).
 | Signed agreement terms frozen | trigger `guard_agreement_terms` |
 | No overlapping in-force agreements | exclusion constraint (btree_gist) |
 | A period charged once | partial unique index on platform_fee_records |
+| Invoice paid only by verified, successful payments | `private.recompute_invoice` |
+| Verification, reversal and allocation are checked, audited, single transactions | Phase 2 SECURITY DEFINER functions; no direct write policies |
 
 ## Relationships (main)
 

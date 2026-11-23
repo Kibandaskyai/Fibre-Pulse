@@ -605,6 +605,19 @@ from public.customers c;
 grant select on public.customer_account_summary to authenticated;
 revoke all on public.customer_account_summary from anon;
 
+-- Customer list with balances, for search, filters and CSV export.
+create or replace view public.customer_directory
+with (security_invoker = true)
+as
+select c.id, c.tenant_id, c.customer_number, c.full_name, c.phone, c.email, c.address, c.estate, c.town, c.county,
+       c.status, c.pppoe_username, c.registered_on, c.notes, c.data_source, c.created_at,
+       s.outstanding, s.credit, s.last_payment_at
+from public.customers c
+join public.customer_account_summary s on s.customer_id = c.id;
+
+grant select on public.customer_directory to authenticated;
+revoke all on public.customer_directory from anon;
+
 -- -----------------------------------------------------------------------------
 -- Grants
 -- -----------------------------------------------------------------------------

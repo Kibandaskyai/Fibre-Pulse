@@ -1,16 +1,15 @@
 "use client";
-import { useActionState } from "react";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { Field, FormMessage, SubmitButton } from "@/components/shared/form-bits";
+import { Field, FormMessage, SubmitButton, useFormAction } from "@/components/shared/form-bits";
 import { INVITABLE_ROLES, ROLE_LABELS } from "@/lib/auth/permissions";
 import { inviteStaffAction } from "@/modules/tenants/actions";
 
 export function InviteForm() {
-  const [state, action] = useActionState(inviteStaffAction, null);
+  const { state, pending, formProps } = useFormAction(inviteStaffAction);
   const errors = state && !state.ok ? state.fieldErrors : undefined;
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form {...formProps} className="grid gap-4" noValidate>
       <Field id="invite-email" label="Email" errors={errors?.email}>
         <Input id="invite-email" name="email" type="email" required placeholder="name@yourisp.co.ke" />
       </Field>
@@ -20,7 +19,7 @@ export function InviteForm() {
         </NativeSelect>
       </Field>
       <FormMessage state={state} />
-      <SubmitButton pendingText="Inviting…">Create invitation</SubmitButton>
+      <SubmitButton pending={pending} pendingText="Inviting…">Create invitation</SubmitButton>
     </form>
   );
 }
