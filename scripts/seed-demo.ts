@@ -93,15 +93,17 @@ async function main() {
   }
   await db.from("technicians").upsert({ tenant_id: mwangaza, profile_id: tech, zone: "Kasarani / Roysambu", phone: "+254700100005" }, { onConflict: "tenant_id,profile_id" });
 
+  // Pilot ISP's suggested monthly packages (provided 23 Nov 2026). Upload is
+  // assumed equal to download (symmetric fibre) until the ISP confirms.
   const packages = [
-    { name: "Daily 5 Mbps", download_mbps: 5, upload_mbps: 5, price: 80, billing_period: "daily", duration_days: 1 },
-    { name: "Weekly 8 Mbps", download_mbps: 8, upload_mbps: 8, price: 450, billing_period: "weekly", duration_days: 7 },
-    { name: "Home 10 Mbps", download_mbps: 10, upload_mbps: 10, price: 2000, billing_period: "monthly", duration_days: null },
-    { name: "Home 20 Mbps", download_mbps: 20, upload_mbps: 20, price: 3000, billing_period: "monthly", duration_days: null },
-    { name: "Business 50 Mbps", download_mbps: 50, upload_mbps: 50, price: 7500, billing_period: "monthly", duration_days: null },
+    { name: "Micro", download_mbps: 5, upload_mbps: 5, price: 1000, billing_period: "monthly", duration_days: null },
+    { name: "Lite", download_mbps: 10, upload_mbps: 10, price: 1500, billing_period: "monthly", duration_days: null },
+    { name: "Starter", download_mbps: 20, upload_mbps: 20, price: 2000, billing_period: "monthly", duration_days: null },
+    { name: "Plus", download_mbps: 30, upload_mbps: 30, price: 2500, billing_period: "monthly", duration_days: null },
+    { name: "Family", download_mbps: 40, upload_mbps: 40, price: 3000, billing_period: "monthly", duration_days: null },
   ];
   for (const p of packages) {
-    await db.from("service_packages").upsert({ tenant_id: mwangaza, description: "Fictional demo package", ...p }, { onConflict: "tenant_id,name" });
+    await db.from("service_packages").upsert({ tenant_id: mwangaza, description: "Pilot ISP suggested package", ...p }, { onConflict: "tenant_id,name" });
   }
 
   const { count } = await db.from("customers").select("id", { count: "exact", head: true }).eq("tenant_id", mwangaza);
@@ -147,7 +149,7 @@ async function main() {
     const { data: pkgs } = await db.from("service_packages").select("id, name").eq("tenant_id", mwangaza);
     const byName = new Map((pkgs ?? []).map((p) => [p.name as string, p.id as string]));
     const { data: custs } = await db.from("customers").select("id, full_name, status").eq("tenant_id", mwangaza).order("customer_number");
-    const plan = ["Home 10 Mbps", "Home 20 Mbps", "Home 10 Mbps", "Weekly 8 Mbps", "Business 50 Mbps", "Home 20 Mbps", "Home 10 Mbps", "Home 10 Mbps", "Home 20 Mbps", "Home 10 Mbps"];
+    const plan = ["Lite", "Starter", "Micro", "Plus", "Family", "Starter", "Lite", "Micro", "Plus", "Starter"];
     let i = 0;
     for (const c of custs ?? []) {
       if (c.status !== "active" && c.status !== "suspended") continue;

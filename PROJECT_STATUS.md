@@ -10,7 +10,7 @@ Legend: **Done and tested** · **Simulated** (works, uses labelled test data) ·
 - First customer: one pilot ISP moving off a provider that charges 3%. Multi-tenant structure kept from day one.
 - Platform fee: **2.75% of gross verified subscription collections** (pilot default, configurable per ISP agreement).
 - **No cash** payment method for the pilot. Methods: M-Pesa, bank transfer, other.
-- Pilot ISP packages, prices and size: not provided yet, so fictional data is used.
+- Pilot ISP packages (monthly, provided 23 Nov 2026): Micro 5 Mbps Ksh 1,000 · Lite 10 Mbps Ksh 1,500 · Starter 20 Mbps Ksh 2,000 · Plus 30 Mbps Ksh 2,500 · Family 40 Mbps Ksh 3,000. Used in the demo seed. Upload speed assumed equal to download until confirmed. Pilot size not provided yet.
 
 ## Phase 1: Product foundation
 
