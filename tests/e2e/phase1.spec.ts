@@ -31,7 +31,7 @@ test("owner signs in and sees the full ISP navigation with real counts", async (
   for (const label of ["Customers", "Payments", "Revenue", "Network Monitoring", "Settings"]) {
     await expect(nav.getByRole("link", { name: label })).toBeVisible();
   }
-  await expect(page.getByText("Registered customers")).toBeVisible();
+  await expect(page.getByText("Registered customers", { exact: true })).toBeVisible();
 });
 
 test("finance does not see network monitoring and is blocked from it", async ({ page }) => {

@@ -50,3 +50,8 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   bank_transfer: "Bank transfer",
   other: "Other",
 };
+
+/** "1 payment", "3 payments". */
+export function plural(n: number, word: string, many = `${word}s`): string {
+  return `${n.toLocaleString("en-KE")} ${n === 1 ? word : many}`;
+}

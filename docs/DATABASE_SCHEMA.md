@@ -11,6 +11,9 @@ Migrations live in `supabase/migrations` and are applied in order by `supabase d
 | `20261123000500_platform_functions.sql` | `admin_list_tenants`, `admin_set_tenant_status` |
 | `20261124000100_billing_functions.sql` | Phase 2: period maths in EAT, subscription purchase/renewal/upgrade/downgrade, suspend/restore/cancel/expire, invoices, payment verify/reject/reverse/allocate/assign, `customer_account_summary` and `customer_directory` views. Removes direct browser writes to payments (update), allocations, reconciliation records, invoices, invoice lines and subscriptions: these change only through the functions. |
 
+| `20261125000100_revenue_analytics.sql` | Phase 3: `revenue_kpis`, `revenue_series`, `revenue_breakdown`, `outstanding_ageing`, `subscription_distribution`, `customer_growth`, `customer_areas` (SECURITY INVOKER, so RLS applies; `revenue:view` checked first), helpers `private.require_revenue_view`, `private.in_area` |
+| `20261125000200_statement_reconciliation.sql` | Phase 3: `reconcile_statement` (SECURITY DEFINER, `payments:reconcile`). Writes `payment_reconciliation_records` rows: `matched` for verified payments, `unmatched` with no payment for statement money nobody recorded (linked later when the payment is recorded and reconciled) |
+
 ## Conventions
 
 - `id uuid` primary keys (`gen_random_uuid()`); `bigint identity` for audit_logs and network_metrics.

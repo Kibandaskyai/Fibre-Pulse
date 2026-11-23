@@ -19,6 +19,12 @@
 - Manual flow that the live flow must match: record payment (unverified) → `verify_payment` → reconciliation record → `private.auto_allocate_customer` (oldest invoice first) → `private.recompute_invoice`. A provider-confirmed payment should end in the same state, written with the service role in the callback route only.
 - Unmatched deposits (`customer_id` null) are linked later with `assign_payment_customer`, so a C2B paybill can reuse this.
 
+## Added in Phase 3 (reconciliation)
+
+- Statement upload at `/payments/reconcile`: parser `src/modules/reconciliation/statement.ts` (M-Pesa Org portal CSV: Receipt No., Completion Time, Details, Transaction Status, Paid In) and database function `reconcile_statement`. Matching is by method + reference + exact amount; only successful, unverified, non-simulated payments are verified.
+- This stays useful after go-live as the monthly check against the paybill statement. When Daraja is live, provider-confirmed payments can be verified with `statement_source = 'provider_query'` after a Transaction Status query (see the TODO in the migration).
+- Statement lines with no payment are stored as `unmatched` reconciliation records. A C2B confirmation handler could create those payments automatically.
+
 ## Engineer checklist
 
 - [ ] Daraja app (sandbox then production), shortcode, passkey, go-live approval with the pilot ISP.

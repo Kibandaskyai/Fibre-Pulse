@@ -36,3 +36,10 @@ During Phase 1, RLS on `payments` was disabled temporarily; 8 tests failed immed
 - `tests/unit/billing.test.ts`: CSV parser, import duplicate report, CSV formula escaping, package/customer/payment validation, time zone helpers, search sanitising.
 - `tests/e2e/phase2.spec.ts` (14): sell a package, invoice, record → verify → paid, duplicate reference, finance cannot sell, reversal, suspend/restore, phone search, CSV import, exports, role blocks, 501 placeholder, phone layout.
 - The browser tests create uniquely named data each run, so re-running needs no reset. `npm run db:seed` after a reset adds demo subscriptions through the real functions.
+
+## Phase 3 additions
+
+- `tests/db/revenue.test.ts` (15): exact KPI figures from known payments, Kenyan dates across midnight UTC, area filter, today/week/month windows, ageing buckets, series gaps, breakdowns, permissions (support and network roles refused) and ISP isolation.
+- `tests/db/reconciliation.test.ts` (9): preview classifies every line without changing anything; exact matches verified and allocated (invoice paid); amount mismatches, simulated, already verified, repeated and unreadable lines left alone; unknown lines recorded once and linked when the payment is recorded later; payments missing from the statement; bank vs M-Pesa references; audit entry; permission, isolation and size limits.
+- `tests/unit/analytics.test.ts`: date range presets in Kenyan time, custom ranges, statement amount/date parsing, M-Pesa and bank statement layouts, report helpers and PDF text safety.
+- `tests/e2e/phase3.spec.ts` (6): record two payments, check and apply a statement upload, revenue and daily report show only the verified one, CSV/PDF downloads, support agent blocked, dashboard and revenue fit a phone screen.

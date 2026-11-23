@@ -9,6 +9,7 @@ The app uses Next.js Server Actions (form posts) and Supabase PostgREST/RPC unde
 | `/auth/callback` | GET | Completes Supabase email links (`code` or `token_hash` + `type`). `next` is restricted to same-site paths by `safeNextPath`. |
 | `/customers/export` | GET | CSV of customers with the screen's filters. `customers:view`; balances only with `invoices:view`. |
 | `/payments/export` | GET | CSV of payments with the screen's filters, including a `counts_as_revenue` column. `payments:view`. |
+| `/reports/export` | GET | Financial report as CSV or PDF (`format=csv\|pdf`). `kind=range` (with the revenue page's `range`, `from`, `to`, `area`; needs `revenue:view`), `kind=daily&date=YYYY-MM-DD` or `kind=monthly&month=YYYY-MM` (need `reports:financial` too). Built by `src/modules/analytics/report.ts` and `report-pdf.ts`. |
 | `/api/payments/mpesa/stk-push` | POST | 501 placeholder. TODO: SOFTWARE ENGINEER - IMPLEMENT SAFARICOM DARAJA INTEGRATION |
 | `/api/payments/mpesa/callback` | POST | 501 placeholder, public path (Safaricom calls it). Must authenticate before trusting anything. |
 
@@ -30,6 +31,7 @@ The app uses Next.js Server Actions (form posts) and Supabase PostgREST/RPC unde
 | `createInvoiceAction`, `voidInvoiceAction` | billing | `invoices:edit` |
 | `recordPaymentAction` | billing | `payments:record` |
 | `verifyPaymentAction`, `rejectPaymentAction`, `reversePaymentAction`, `allocatePaymentAction`, `assignPaymentCustomerAction` | billing | `payments:reconcile` |
+| `reconcileStatementAction` (step `check` then `apply`) | `src/modules/reconciliation/actions.ts` | `payments:reconcile` |
 
 Every action validates input with Zod and returns `ActionResult` (`{ ok, message, fieldErrors? }`).
 
@@ -50,6 +52,13 @@ Every action validates input with Zod and returns `ActionResult` (`{ ok, message
 | `verify_payment(payment, statement_source, statement_reference, notes)` | `payments:reconcile` | Not for simulated payments. Records reconciliation and auto-allocates oldest invoice first. |
 | `reject_payment`, `reverse_payment(payment, reason)` | `payments:reconcile` | Reversal keeps the row, removes allocations, reopens invoices. |
 | `allocate_payment(payment, invoice, amount)`, `assign_payment_customer(payment, customer)` | `payments:reconcile` | Same-ISP only; amounts capped by the guard trigger. |
+
+| `revenue_kpis(tenant, from, to, area)` | `revenue:view` | jsonb of collected (by method), recognised, credit, awaiting verification, simulated excluded, reversed, refunded, outstanding, overdue, invoiced, package sales, today/week/month. Dates are Kenyan. |
+| `revenue_series(tenant, from, to, grain day\|month, area)` | `revenue:view` | Gaps filled with zero. |
+| `revenue_breakdown(tenant, from, to, dimension package\|area\|method, area)` | `revenue:view` | Package view follows allocations to invoices and subscriptions. |
+| `outstanding_ageing(tenant, area)` | `revenue:view` | Not yet due, 1–30, 31–60, 61–90, over 90 days. |
+| `subscription_distribution(tenant, area)`, `customer_growth(tenant, months, area)`, `customer_areas(tenant)` | `subscriptions:view` / `customers:view` | For dashboard charts and the area filter. |
+| `reconcile_statement(tenant, source, lines jsonb, apply)` | `payments:reconcile` | `source` is `mpesa_statement` or `bank_statement`; lines are `{line, reference, amount, date, details}` (max 5,000). Preview when `apply` is false; otherwise verifies exact matches, allocates them and records unknown lines as `unmatched`. |
 
 ## Planned endpoints
 

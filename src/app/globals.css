@@ -33,6 +33,11 @@
   --danger: #ef4444;           /* critical outage */
   --simulated: #a78bfa;        /* simulated data badge */
 
+  /* Charts: one validated hue for magnitude (dataviz check, dark surface). */
+  --chart-1: #3987e5;
+  --chart-grid: #1e2a44;
+  --chart-axis: #7d8ca8;
+
   --sidebar: #0c1426;
   --sidebar-foreground: #c7d3e8;
   --sidebar-active: #16223b;
@@ -63,6 +68,7 @@
   --color-danger: var(--danger);
   --color-destructive: var(--danger);
   --color-simulated: var(--simulated);
+  --color-chart-1: var(--chart-1);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-active: var(--sidebar-active);
