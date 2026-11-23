@@ -57,7 +57,7 @@ Test totals at end of Phase 2: **212 unit and database tests and 23 browser test
 - Renewing the same package adds the new period after the current expiry, so no paid days are lost.
 - Monthly packages run for one calendar month (31 Jan to 28/29 Feb), in Kenyan time.
 - Confirmed: suspending **must disconnect the customer on the router**, and restoring reconnects them. This is built in Phase 4 with the MikroTik connector (disable the PPPoE secret and drop the active session, then re-enable on restore). Until then the screen tells staff to disconnect on the router themselves.
-- Not yet confirmed: only the ISP owner can sell packages and suspend; finance records, verifies and reverses payments.
+- Confirmed: only the ISP owner can sell packages and suspend; finance records, verifies and reverses payments.
 
 ## Not built yet
 
