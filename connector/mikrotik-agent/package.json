@@ -1,0 +1,18 @@
+{
+  "name": "@fibrepulse/mikrotik-agent",
+  "version": "0.4.0",
+  "private": true,
+  "description": "FibrePulse Connector Agent: polls MikroTik routers inside the ISP network and reports to FibrePulse over HTTPS.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "bin": { "fibrepulse-agent": "dist/index.js" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "once": "node dist/index.js --once"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

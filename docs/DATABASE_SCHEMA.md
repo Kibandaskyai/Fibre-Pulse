@@ -34,7 +34,7 @@ The 23 tables required by the spec, plus additions marked (+).
 
 **Billing and payments:** invoices (total = subtotal + tax, amount_paid ≤ total), invoice_lines (+, category drives fee eligibility), payments, payment_allocations (+, cannot exceed payment amount or invoice total), payment_reconciliation_records.
 
-**Network:** connector_agents (token stored as SHA-256 hash), routers, router_credentials (+, encrypted, no SELECT policy at all), router_interfaces, network_sessions, network_metrics, network_alerts.
+**Network:** connector_agents (token stored as SHA-256 hash), routers (+ `api_scheme`, `verify_tls`, `consecutive_failures`), router_credentials (+, encrypted, no SELECT policy at all), router_interfaces, network_sessions, network_metrics, network_alerts (+ `dedupe_key`: one open alert per problem), router_commands (+, Phase 4: disconnect/reconnect queue with status `queued → sent → succeeded/failed`, or `blocked`, `cancelled`, `expired`; read-only to users). `customers.router_id` (+) is learned from sessions. Private: `connector_nonces` (replay protection, 1 hour), `watchdog_runs`. Retention: metrics 90 days, closed sessions 365 days.
 
 **Operations:** technicians, support_tickets, installation_jobs, notifications.
 

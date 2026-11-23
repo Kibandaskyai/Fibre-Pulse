@@ -1,0 +1,19 @@
+# systemd unit. Copy to /etc/systemd/system/, put settings in /etc/fibrepulse-agent.env
+[Unit]
+Description=FibrePulse Connector Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=/etc/fibrepulse-agent.env
+ExecStart=/usr/bin/node /opt/fibrepulse-agent/dist/index.js
+Restart=always
+RestartSec=10
+User=fibrepulse
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

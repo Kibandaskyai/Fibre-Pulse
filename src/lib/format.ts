@@ -55,3 +55,37 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
 export function plural(n: number, word: string, many = `${word}s`): string {
   return `${n.toLocaleString("en-KE")} ${n === 1 ? word : many}`;
 }
+
+/** 250000000 -> "250 Mbps". */
+export function formatBps(bps: number | null | undefined): string {
+  if (bps === null || bps === undefined || !Number.isFinite(bps)) return "—";
+  const units = ["bps", "kbps", "Mbps", "Gbps"];
+  let v = bps;
+  let i = 0;
+  while (v >= 1000 && i < units.length - 1) {
+    v /= 1000;
+    i += 1;
+  }
+  return `${v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
+}
+
+/** 788645 -> "9d 3h". */
+export function formatDuration(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return "—";
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+/** "3 min ago", "2 h ago", or a date. */
+export function timeAgo(value: string | null | undefined, now = Date.now()): string {
+  if (!value) return "never";
+  const s = Math.round((now - Date.parse(value)) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  return formatDateTime(value);
+}

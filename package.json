@@ -9,11 +9,12 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:unit": "vitest run tests/unit",
+    "test:unit": "vitest run tests/unit tests/connector",
     "test:db": "vitest run tests/db",
     "db:start": "supabase start -x studio,imgproxy,vector,logflare,realtime,storage-api,edge-runtime,supavisor,postgres-meta",
     "db:reset": "supabase db reset",
     "db:seed": "tsx scripts/seed-demo.ts",
+    "connector:demo": "tsx --env-file=connector/mikrotik-agent/.env connector/mikrotik-agent/src/index.ts",
     "test:e2e": "playwright test --trace off"
   },
   "dependencies": {

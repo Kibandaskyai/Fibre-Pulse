@@ -5,7 +5,8 @@ import { publicEnv } from "@/lib/env";
 /** Paths that do not require a signed-in user. */
 // The M-Pesa callback is called by Safaricom, not a signed-in user; the route
 // itself must authenticate the request (see its TODO).
-export const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/auth/", "/api/payments/mpesa/callback"];
+// /api/connector/ authenticates with the connector token and signature instead of a user session.
+export const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/auth/", "/api/payments/mpesa/callback", "/api/connector/"];
 
 export function isPublicPath(pathname: string): boolean {
   return pathname === "/" || PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : `${p}/`));

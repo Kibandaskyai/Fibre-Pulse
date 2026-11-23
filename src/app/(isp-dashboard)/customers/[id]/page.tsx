@@ -27,6 +27,8 @@ import { changeSubscriptionAction, createInvoiceAction, purchaseSubscriptionActi
 import { expireDueSubscriptions } from "@/modules/billing/service";
 import { getCustomer, getCustomerHistory } from "@/modules/customers/service";
 import { listPackages } from "@/modules/packages/service";
+import { CustomerConnectionCard } from "@/components/network/customer-connection";
+import { customerConnection, listRouters, routerEnforcementEnabled } from "@/modules/network/service";
 
 export const metadata: Metadata = { title: "Customer" };
 
@@ -55,9 +57,13 @@ export default async function CustomerPage({
   const result = await getCustomer(db, ctx.active.tenantId, id);
   if (!result.ok) notFound();
   const c = result.data;
-  const [history, packages] = await Promise.all([
+  const canSeeNetwork = perms.has("network:view");
+  const [history, packages, connection, routers, enforcement] = await Promise.all([
     getCustomerHistory(db, ctx.active.tenantId, id),
     perms.has("subscriptions:edit") ? listPackages(db, ctx.active.tenantId, { activeOnly: true }) : Promise.resolve(null),
+    customerConnection(db, ctx.active.tenantId, id, canSeeNetwork),
+    perms.has("network:edit") ? listRouters(db, ctx.active.tenantId) : Promise.resolve([]),
+    routerEnforcementEnabled(db, ctx.active.tenantId),
   ]);
   const live = history.subscriptions.find((s) => s.status === "active" || s.status === "suspended");
   const tabs = TABS.filter((t) => perms.has(t.permission));
@@ -217,6 +223,15 @@ export default async function CustomerPage({
         </Card>
 
         <div className="grid h-fit gap-6">
+          <CustomerConnectionCard
+            customerId={c.id}
+            connection={connection}
+            routers={routers.map((r) => ({ id: r.id, name: r.name }))}
+            canSeeNetwork={canSeeNetwork}
+            canAssign={perms.has("network:edit")}
+            canRetry={perms.has("subscriptions:suspend")}
+            enforcement={enforcement}
+          />
           {packages?.ok && c.status !== "terminated" ? (
             <Card>
               <CardHeader>
@@ -248,7 +263,7 @@ export default async function CustomerPage({
             <Card>
               <CardHeader>
                 <CardTitle>Subscription status</CardTitle>
-                <CardDescription>Changes are recorded with your reason. Suspending will disconnect the customer on the router once the FibrePulse Connector is installed; until then, disconnect them on the router yourself.</CardDescription>
+                <CardDescription>{enforcement ? "Changes are recorded with your reason. Suspending disconnects the customer on the router through the connector; restoring reconnects them." : "Changes are recorded with your reason. Router disconnect is off, so also disconnect a suspended customer on the router yourself."}</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-5">
                 {perms.has("subscriptions:suspend") && live.status === "active" ? (
