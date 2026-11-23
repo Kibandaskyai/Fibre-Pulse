@@ -5,7 +5,7 @@ import { TENANT_ROLES, ROLE_LABELS, type TenantRole } from "@/lib/auth/permissio
 import { changeRoleAction } from "@/modules/tenants/actions";
 
 /** Changes a member's role as soon as a new role is picked. */
-export function RoleSelect({ memberId, role, disabled }: { memberId: string; role: TenantRole; disabled?: boolean }) {
+export function RoleSelect({ memberId, role, name, disabled }: { memberId: string; role: TenantRole; name: string; disabled?: boolean }) {
   const [state, action, pending] = useActionState(changeRoleAction, null);
   return (
     <form action={action} className="grid gap-1">
@@ -14,7 +14,7 @@ export function RoleSelect({ memberId, role, disabled }: { memberId: string; rol
         name="role"
         defaultValue={role}
         disabled={disabled || pending}
-        aria-label="Role"
+        aria-label={`Role for ${name}`}
         className="h-8 min-w-44"
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
       >

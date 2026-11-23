@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 import { TenantStatusBadge } from "@/components/shared/status-badge";
+import { DataSourceBadge } from "@/components/shared/data-source-badge";
 import { requireTenant } from "@/lib/auth/guards";
 import type { Permission } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
@@ -32,13 +33,20 @@ export default async function OverviewPage() {
       let q = db.from(c.table).select("*", { count: "exact", head: true }).eq("tenant_id", ctx.active.tenantId);
       if (c.filter) q = q.eq(c.filter[0], c.filter[1]);
       const { count, error } = await q;
-      return error ? null : (count ?? 0);
+      if (error) return { total: null, simulated: 0 };
+      // Routers can be simulated test devices: count and label them.
+      let simulated = 0;
+      if (c.table === "routers") {
+        const r = await db.from("routers").select("*", { count: "exact", head: true }).eq("tenant_id", ctx.active.tenantId).eq("data_source", "simulated");
+        simulated = r.count ?? 0;
+      }
+      return { total: count ?? 0, simulated };
     }),
   );
 
   const setup = [
     { done: ctx.active.tenantStatus === "active", label: "FibrePulse activates your workspace", href: null },
-    { done: (counts[visible.findIndex((c) => c.table === "tenant_members")] ?? 0) > 1, label: "Invite your staff", href: "/settings/staff", show: perms.has("staff:manage") },
+    { done: (counts[visible.findIndex((c) => c.table === "tenant_members")]?.total ?? 0) > 1, label: "Invite your staff", href: "/settings/staff", show: perms.has("staff:manage") },
     { done: false, label: "Create your internet packages (Phase 2)", href: null },
     { done: false, label: "Import or add customers (Phase 2)", href: null },
     { done: false, label: "Install the FibrePulse Connector for MikroTik (Phase 4)", href: null },
@@ -61,7 +69,12 @@ export default async function OverviewPage() {
                 <span className="text-muted-foreground [&_svg]:size-4">{c.icon}</span>
               </CardHeader>
               <CardContent>
-                <p className="tabular text-3xl font-semibold">{counts[i] === null ? "–" : counts[i]!.toLocaleString("en-KE")}</p>
+                <p className="tabular text-3xl font-semibold">{counts[i]!.total === null ? "–" : counts[i]!.total!.toLocaleString("en-KE")}</p>
+                {counts[i]!.simulated > 0 ? (
+                  <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <DataSourceBadge source="simulated" /> {counts[i]!.simulated} of {counts[i]!.total} are test devices
+                  </p>
+                ) : null}
               </CardContent>
             </Card>
           </Link>

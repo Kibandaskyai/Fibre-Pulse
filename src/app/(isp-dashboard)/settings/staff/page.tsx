@@ -54,7 +54,7 @@ export default async function StaffPage() {
                             <p className="font-medium">{m.fullName || "—"} {self ? <Badge variant="secondary">You</Badge> : null}</p>
                             <p className="text-xs text-muted-foreground">{m.email}</p>
                           </TableCell>
-                          <TableCell>{self ? ROLE_LABELS[m.role] : <RoleSelect memberId={m.id} role={m.role} />}</TableCell>
+                          <TableCell>{self ? ROLE_LABELS[m.role] : <RoleSelect memberId={m.id} role={m.role} name={m.fullName || m.email} />}</TableCell>
                           <TableCell><TenantStatusBadge status={m.status} /></TableCell>
                           <TableCell className="hidden text-muted-foreground md:table-cell">{dateFmt.format(new Date(m.joinedAt))}</TableCell>
                           <TableCell className="text-right">
