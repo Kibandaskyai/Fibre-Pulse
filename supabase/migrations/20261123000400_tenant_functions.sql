@@ -153,3 +153,27 @@ $$;
 
 revoke all on function public.my_permissions(uuid) from public, anon;
 grant execute on function public.my_permissions(uuid) to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- my_invitations: open invitations for the caller's own email, with the ISP
+-- name (the invitee is not a member yet, so RLS hides the tenant row).
+-- -----------------------------------------------------------------------------
+create or replace function public.my_invitations()
+returns table (id uuid, tenant_name text, role public.tenant_role, expires_at timestamptz)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select i.id, t.name, i.role, i.expires_at
+  from public.tenant_invitations i
+  join public.tenants t on t.id = i.tenant_id
+  join auth.users u on u.id = auth.uid()
+  where lower(i.email::text) = lower(u.email)
+    and i.accepted_at is null and i.revoked_at is null and i.expires_at > now()
+    and t.status in ('pending', 'active')
+  order by i.created_at desc
+$$;
+
+revoke all on function public.my_invitations() from public, anon;
+grant execute on function public.my_invitations() to authenticated;

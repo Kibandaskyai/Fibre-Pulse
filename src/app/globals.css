@@ -1,26 +1,92 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
+/*
+ * FibrePulse design tokens: a network operations centre look.
+ * Deep navy and charcoal surfaces, electric blue and teal accents,
+ * green / orange / red reserved for status meaning only.
+ * The app is dark by default; a light theme can be added by redefining
+ * these tokens under a `.light` class.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a1020;
+  --foreground: #e6edf7;
+  --card: #111a2e;
+  --card-foreground: #e6edf7;
+  --popover: #121c31;
+  --popover-foreground: #e6edf7;
+  --muted: #18233a;
+  --muted-foreground: #93a3bd;
+  --border: #23314d;
+  --input: #2a3a5a;
+  --ring: #3b8bff;
+
+  --primary: #2f7bff;          /* electric blue */
+  --primary-foreground: #ffffff;
+  --accent: #14b8a6;           /* teal */
+  --accent-foreground: #04201c;
+  --secondary: #1b2742;
+  --secondary-foreground: #dbe5f5;
+
+  --success: #22c55e;          /* healthy */
+  --warning: #f59e0b;          /* warning */
+  --danger: #ef4444;           /* critical outage */
+  --simulated: #a78bfa;        /* simulated data badge */
+
+  --sidebar: #0c1426;
+  --sidebar-foreground: #c7d3e8;
+  --sidebar-active: #16223b;
+
+  --radius: 0.625rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-destructive: var(--danger);
+  --color-simulated: var(--simulated);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-active: var(--sidebar-active);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Inter", "Segoe UI", Roboto, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+  /* Tabular figures for money and metrics so columns line up. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
 }

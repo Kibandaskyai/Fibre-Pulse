@@ -257,3 +257,27 @@ describe("audit log", () => {
     });
   });
 });
+
+describe("platform admin functions", () => {
+  it("super admin can list tenants with owner contact; ISP owners cannot", async () => {
+    const rows = await asUser(w.superAdmin, async (c) => (await c.query(`select * from public.admin_list_tenants()`)).rows);
+    const a = rows.find((r) => r.id === w.a.tenantId);
+    expect(a).toMatchObject({ owner_email: w.a.owner.email, staff_count: 5 });
+    const denied = await asUser(w.a.owner, (c) => tryQuery(c, `select * from public.admin_list_tenants()`));
+    expect(denied.ok).toBe(false);
+  });
+
+  it("status changes need a super admin and a reason, and the reason is audited", async () => {
+    const noReason = await asUser(w.superAdmin, (c) => tryQuery(c, `select public.admin_set_tenant_status($1, 'suspended', '')`, [w.b.tenantId]));
+    expect(noReason.ok).toBe(false);
+    const bySupport = await asUser(w.supportAdmin, (c) =>
+      tryQuery(c, `select public.admin_set_tenant_status($1, 'suspended', 'Unpaid platform invoice')`, [w.b.tenantId]),
+    );
+    expect(bySupport.ok).toBe(false);
+    await asUser(w.superAdmin, async (c) => {
+      await c.query(`select public.admin_set_tenant_status($1, 'suspended', 'Unpaid platform invoice')`, [w.b.tenantId]);
+      const r = await c.query(`select reason from audit_logs where entity_type = 'tenants' and entity_id = $1 order by id desc limit 1`, [w.b.tenantId]);
+      expect(r.rows[0].reason).toBe("Unpaid platform invoice");
+    });
+  });
+});

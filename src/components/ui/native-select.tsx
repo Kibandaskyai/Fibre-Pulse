@@ -1,0 +1,17 @@
+import * as React from "react";
+import { cn } from "@/lib/utils";
+
+/** A styled native <select>: accessible, works without JavaScript, mobile friendly. */
+export function NativeSelect({ className, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      className={cn(
+        "flex h-9 w-full rounded-md border border-input bg-background/60 px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 aria-[invalid=true]:border-danger",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </select>
+  );
+}
