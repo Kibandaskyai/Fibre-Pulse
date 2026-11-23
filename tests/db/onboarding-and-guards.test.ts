@@ -201,18 +201,29 @@ describe("payment guards", () => {
   });
 
   it("a payment's amount and reference cannot be edited after recording", async () => {
+    // Browser roles have no update path at all, and the trigger guards even
+    // the database owner and the SECURITY DEFINER functions.
     const r = await asUser(w.a.owner, (c) => tryQuery(c, `update payments set amount = 1 where id = $1`, [w.a.ids.payment]));
-    expect(r.ok).toBe(false);
+    expect(r.ok && r.rowCount).toBe(0);
+    const asOwner = await pool
+      .query(`update payments set provider_reference = 'CHANGED1' where id = $1`, [w.a.ids.payment])
+      .then(() => "updated")
+      .catch(() => "refused");
+    expect(asOwner).toBe("refused");
   });
 
-  it("a payment can be verified by someone with reconcile permission", async () => {
-    const r = await asUser(w.financeA, (c) =>
+  it("a payment cannot be verified by a direct update, only through verify_payment", async () => {
+    const direct = await asUser(w.financeA, (c) =>
       tryQuery(c, `update payments set verification_status = 'verified', verified_by = $2, verified_at = now() where id = $1`, [
         w.a.ids.payment,
         w.financeA.id,
       ]),
     );
-    expect(r.ok && r.rowCount).toBe(1);
+    expect(direct.ok && direct.rowCount).toBe(0);
+    const viaFunction = await asUser(w.financeA, (c) =>
+      tryQuery(c, `select public.verify_payment($1, 'bank_statement', 'STMT-1', null)`, [w.a.ids.payment]),
+    );
+    expect(viaFunction.ok).toBe(true);
   });
 
   it("simulated payments can never be marked verified", async () => {

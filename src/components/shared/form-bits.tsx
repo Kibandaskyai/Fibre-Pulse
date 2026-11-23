@@ -1,4 +1,5 @@
 "use client";
+import { startTransition, useActionState, useEffect, useRef, type FormEvent } from "react";
 import { useFormStatus } from "react-dom";
 import { Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -7,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { ActionResult } from "@/lib/validation/common";
 
-export function SubmitButton({ children, pendingText, ...props }: ButtonProps & { pendingText?: string }) {
-  const { pending } = useFormStatus();
+export function SubmitButton({ children, pendingText, pending: pendingProp, ...props }: ButtonProps & { pendingText?: string; pending?: boolean }) {
+  const status = useFormStatus();
+  const pending = pendingProp ?? status.pending;
   return (
     <Button type="submit" disabled={pending || props.disabled} {...props}>
       {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
@@ -39,4 +41,26 @@ export function FormMessage({ state }: { state: ActionResult | null }) {
       <AlertDescription className="text-foreground">{state.message}</AlertDescription>
     </Alert>
   );
+}
+
+/**
+ * Bind a form to a server action without React's automatic form reset, so a
+ * validation error never wipes what the person typed. The form is cleared
+ * only after a successful result (unless resetOnSuccess is false).
+ */
+export function useFormAction<T extends ActionResult | null>(
+  action: (prev: T | null, formData: FormData) => Promise<T>,
+  { resetOnSuccess = true }: { resetOnSuccess?: boolean } = {},
+) {
+  const [state, dispatch, pending] = useActionState<T | null, FormData>(action, null);
+  const ref = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (resetOnSuccess && state?.ok) ref.current?.reset();
+  }, [state, resetOnSuccess]);
+  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    startTransition(() => dispatch(fd));
+  };
+  return { state, pending, formProps: { ref, onSubmit } };
 }

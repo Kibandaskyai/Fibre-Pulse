@@ -12,11 +12,12 @@
 - Only `status = 'successful' AND verification_status = 'verified'` counts as collected revenue.
 - Staff cannot insert provider payments; only the server (service role) can.
 
-## Coming in Phase 2 (interfaces and stubs)
+## Added in Phase 2 (interfaces and stubs)
 
-- `src/lib/integrations/payments/provider.ts`: `PaymentProvider` interface (`initiateStkPush`, `handleCallback`, `queryTransactionStatus`, `requestReversal`).
-- `ManualPaymentProvider` (working) and `DarajaPaymentProvider` (stub that throws with the TODO marker).
-- `POST /api/payments/mpesa/stk-push` and `POST /api/payments/mpesa/callback` placeholders returning 501.
+- `src/lib/integrations/payments/provider.ts`: `PaymentProvider` interface (`initiateStkPush`, `parseCallback`), `ManualPaymentProvider` (the one in use) and `DarajaPaymentProvider` (stub returning `not_configured`, with step-by-step TODO notes).
+- `POST /api/payments/mpesa/stk-push` and `POST /api/payments/mpesa/callback` return 501. The callback path is public in `src/lib/supabase/proxy.ts` because Safaricom calls it; the route must authenticate requests itself.
+- Manual flow that the live flow must match: record payment (unverified) → `verify_payment` → reconciliation record → `private.auto_allocate_customer` (oldest invoice first) → `private.recompute_invoice`. A provider-confirmed payment should end in the same state, written with the service role in the callback route only.
+- Unmatched deposits (`customer_id` null) are linked later with `assign_payment_customer`, so a C2B paybill can reuse this.
 
 ## Engineer checklist
 

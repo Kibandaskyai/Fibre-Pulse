@@ -1,18 +1,17 @@
 "use client";
-import { useActionState } from "react";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { Field, FormMessage, SubmitButton } from "@/components/shared/form-bits";
+import { Field, FormMessage, SubmitButton, useFormAction } from "@/components/shared/form-bits";
 import { KENYAN_COUNTIES } from "@/lib/validation/common";
 import { updateOrganisationAction } from "@/modules/tenants/actions";
 
 export type OrganisationValues = { name: string; legalName: string; county: string; town: string; contactPhone: string };
 
 export function OrganisationForm({ values }: { values: OrganisationValues }) {
-  const [state, action] = useActionState(updateOrganisationAction, null);
+  const { state, pending, formProps } = useFormAction(updateOrganisationAction, { resetOnSuccess: false });
   const errors = state && !state.ok ? state.fieldErrors : undefined;
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form {...formProps} className="grid gap-4" noValidate>
       <Field id="name" label="ISP name" errors={errors?.name}>
         <Input id="name" name="name" defaultValue={values.name} required />
       </Field>
@@ -33,7 +32,7 @@ export function OrganisationForm({ values }: { values: OrganisationValues }) {
         <Input id="contactPhone" name="contactPhone" inputMode="tel" defaultValue={values.contactPhone} placeholder="0712 345 678" />
       </Field>
       <FormMessage state={state} />
-      <div><SubmitButton pendingText="Saving…">Save changes</SubmitButton></div>
+      <div><SubmitButton pending={pending} pendingText="Saving…">Save changes</SubmitButton></div>
     </form>
   );
 }

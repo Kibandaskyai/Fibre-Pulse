@@ -5,13 +5,16 @@
  *
  * Creates:
  *   - a FibrePulse super admin and a support admin
+ *   - (Phase 2) subscriptions and their invoices for active demo customers,
+ *     bought through the real purchase_subscription function as the owner,
+ *     and two SIMULATED M-Pesa payments that can never be verified
  *   - "Mwangaza Fibre Networks" (active) with one user per ISP role
  *   - "Pwani Connect" (pending) to demonstrate tenant isolation
  *   - fictional packages and customers, and SIMULATED routers
  *
  * All people, phone numbers and places are fictional. Router rows are marked
- * data_source = 'simulated'. No payments are created: Phase 2 builds the
- * payment flows, and simulated payments are never counted as revenue.
+ * data_source = 'simulated'. No verified payments are created: demo payments
+ * are simulated, so they never count as revenue or pay an invoice.
  *
  * Refuses to run against anything but a local Supabase.
  */
@@ -90,15 +93,17 @@ async function main() {
   }
   await db.from("technicians").upsert({ tenant_id: mwangaza, profile_id: tech, zone: "Kasarani / Roysambu", phone: "+254700100005" }, { onConflict: "tenant_id,profile_id" });
 
+  // Pilot ISP's suggested monthly packages (provided 23 Nov 2026). Upload is
+  // assumed equal to download (symmetric fibre) until the ISP confirms.
   const packages = [
-    { name: "Daily 5 Mbps", download_mbps: 5, upload_mbps: 5, price: 80, billing_period: "daily", duration_days: 1 },
-    { name: "Weekly 8 Mbps", download_mbps: 8, upload_mbps: 8, price: 450, billing_period: "weekly", duration_days: 7 },
-    { name: "Home 10 Mbps", download_mbps: 10, upload_mbps: 10, price: 2000, billing_period: "monthly", duration_days: null },
-    { name: "Home 20 Mbps", download_mbps: 20, upload_mbps: 20, price: 3000, billing_period: "monthly", duration_days: null },
-    { name: "Business 50 Mbps", download_mbps: 50, upload_mbps: 50, price: 7500, billing_period: "monthly", duration_days: null },
+    { name: "Micro", download_mbps: 5, upload_mbps: 5, price: 1000, billing_period: "monthly", duration_days: null },
+    { name: "Lite", download_mbps: 10, upload_mbps: 10, price: 1500, billing_period: "monthly", duration_days: null },
+    { name: "Starter", download_mbps: 20, upload_mbps: 20, price: 2000, billing_period: "monthly", duration_days: null },
+    { name: "Plus", download_mbps: 30, upload_mbps: 30, price: 2500, billing_period: "monthly", duration_days: null },
+    { name: "Family", download_mbps: 40, upload_mbps: 40, price: 3000, billing_period: "monthly", duration_days: null },
   ];
   for (const p of packages) {
-    await db.from("service_packages").upsert({ tenant_id: mwangaza, description: "Fictional demo package", ...p }, { onConflict: "tenant_id,name" });
+    await db.from("service_packages").upsert({ tenant_id: mwangaza, description: "Pilot ISP suggested package", ...p }, { onConflict: "tenant_id,name" });
   }
 
   const { count } = await db.from("customers").select("id", { count: "exact", head: true }).eq("tenant_id", mwangaza);
@@ -132,6 +137,38 @@ async function main() {
     { name: "Roysambu Distribution (simulated)", model: "RB5009UG+S+IN", location_name: "Roysambu cabinet", latitude: -1.2185, longitude: 36.8857 },
   ]) {
     await db.from("routers").upsert({ tenant_id: mwangaza, data_source: "simulated", status: "unknown", ...r }, { onConflict: "tenant_id,name" });
+  }
+
+  // Phase 2: sell packages through the real database function, signed in as
+  // the owner, so invoices and audit rows are exactly what the app creates.
+  const { count: subCount } = await db.from("subscriptions").select("id", { count: "exact", head: true }).eq("tenant_id", mwangaza);
+  if (!subCount) {
+    const asOwner = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error: signInError } = await asOwner.auth.signInWithPassword({ email: "owner@mwangaza.test", password: DEMO_PASSWORD });
+    if (signInError) throw signInError;
+    const { data: pkgs } = await db.from("service_packages").select("id, name").eq("tenant_id", mwangaza);
+    const byName = new Map((pkgs ?? []).map((p) => [p.name as string, p.id as string]));
+    const { data: custs } = await db.from("customers").select("id, full_name, status").eq("tenant_id", mwangaza).order("customer_number");
+    const plan = ["Lite", "Starter", "Micro", "Plus", "Family", "Starter", "Lite", "Micro", "Plus", "Starter"];
+    let i = 0;
+    for (const c of custs ?? []) {
+      if (c.status !== "active" && c.status !== "suspended") continue;
+      const pkg = byName.get(plan[i++ % plan.length]);
+      const { data: subId, error } = await asOwner.rpc("purchase_subscription", { p_customer: c.id, p_package: pkg });
+      if (error) throw error;
+      if (c.status === "suspended") {
+        await asOwner.rpc("suspend_subscription", { p_subscription: subId, p_reason: "Demo: account suspended for non-payment" });
+      }
+    }
+    const simulatedPayer = (custs ?? [])[0];
+    for (const [ref, amount] of [["SIMDEMO001", 2000], ["SIMDEMO002", 450]] as const) {
+      await db.from("payments").insert({
+        tenant_id: mwangaza, customer_id: simulatedPayer?.id ?? null, method: "mpesa", provider_reference: ref, amount,
+        transaction_at: new Date().toISOString(), status: "successful", verification_status: "unverified", data_source: "simulated",
+        description: "Simulated M-Pesa payment for the demo. Never counts as revenue.",
+      });
+    }
+    await asOwner.auth.signOut();
   }
 
   await db.from("notifications").insert({

@@ -47,8 +47,8 @@ export default async function OverviewPage() {
   const setup = [
     { done: ctx.active.tenantStatus === "active", label: "FibrePulse activates your workspace", href: null },
     { done: (counts[visible.findIndex((c) => c.table === "tenant_members")]?.total ?? 0) > 1, label: "Invite your staff", href: "/settings/staff", show: perms.has("staff:manage") },
-    { done: false, label: "Create your internet packages (Phase 2)", href: null },
-    { done: false, label: "Import or add customers (Phase 2)", href: null },
+    { done: (counts[visible.findIndex((c) => c.table === "service_packages")]?.total ?? 0) > 0, label: "Create your internet packages", href: "/packages", show: perms.has("packages:edit") },
+    { done: (counts[visible.findIndex((c) => c.table === "customers")]?.total ?? 0) > 0, label: "Import or add customers", href: "/customers/import", show: perms.has("customers:edit") },
     { done: false, label: "Install the FibrePulse Connector for MikroTik (Phase 4)", href: null },
   ].filter((s) => s.show !== false);
 

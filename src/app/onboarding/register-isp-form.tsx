@@ -1,20 +1,20 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { Field, FormMessage, SubmitButton } from "@/components/shared/form-bits";
+import { Field, FormMessage, SubmitButton, useFormAction } from "@/components/shared/form-bits";
 import { KENYAN_COUNTIES } from "@/lib/validation/common";
 import { slugify } from "@/lib/validation/tenants";
 import { registerTenantAction } from "@/modules/tenants/actions";
 
 export function RegisterIspForm({ defaultOwnerName }: { defaultOwnerName: string }) {
-  const [state, action] = useActionState(registerTenantAction, null);
+  const { state, pending, formProps } = useFormAction(registerTenantAction);
   const errors = state && !state.ok ? state.fieldErrors : undefined;
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
 
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form {...formProps} className="grid gap-4" noValidate>
       <Field id="name" label="ISP name" errors={errors?.name}>
         <Input
           id="name"
@@ -61,7 +61,7 @@ export function RegisterIspForm({ defaultOwnerName }: { defaultOwnerName: string
       </Field>
       <input type="hidden" name="ownerName" value={defaultOwnerName} />
       <FormMessage state={state} />
-      <SubmitButton pendingText="Creating workspace…">Register ISP</SubmitButton>
+      <SubmitButton pending={pending} pendingText="Creating workspace…">Register ISP</SubmitButton>
     </form>
   );
 }
