@@ -63,6 +63,37 @@ Every action validates input with Zod and returns `ActionResult` (`{ ok, message
 | `subscription_distribution(tenant, area)`, `customer_growth(tenant, months, area)`, `customer_areas(tenant)` | `subscriptions:view` / `customers:view` | For dashboard charts and the area filter. |
 | `reconcile_statement(tenant, source, lines jsonb, apply)` | `payments:reconcile` | `source` is `mpesa_statement` or `bank_statement`; lines are `{line, reference, amount, date, details}` (max 5,000). Preview when `apply` is false; otherwise verifies exact matches, allocates them and records unknown lines as `unmatched`. |
 
+## FibrePulse commercial platform (Phase 6)
+
+Agreements, fee records and platform invoices have no insert or update policies: every write goes through these SECURITY DEFINER functions, which check the caller and write the audit reason. `admin_*` functions need a **super administrator** unless noted.
+
+| Function | Notes |
+|---|---|
+| `admin_save_agreement(tenant, agreement\|null, fee_rate, fee_basis gross\|net_of_vat, excluded revenue_category[], effective_from, notes)` | Creates or edits the one draft. Rate > 0 and ≤ 20%; subscriptions cannot be excluded; start must be the 1st of a month and after every signed version. Returns the draft id. |
+| `admin_discard_agreement(agreement)` | Drafts only. |
+| `admin_sign_agreement(agreement, signed_by)` | Freezes the draft, supersedes the version in force from the new start month. Refused if fees from that month are already calculated. |
+| `admin_end_agreement(agreement, end_month, reason)` | No fees from `end_month`. |
+| `admin_calculate_fees(tenant, month)` | Returns `result` (`calculated`, `unchanged`, `adjustment`), the record, and the month's totals. Finished months under a signed agreement only. |
+| `admin_calculate_all_fees(month)` | One row per active ISP: result `calculated`, `unchanged`, `adjustment`, `no_agreement` or `error`. |
+| `admin_issue_platform_invoice(tenant, due_days 1–90, tax_rate 0–0.5, notes)` | Puts every calculated, uninvoiced record on a new `FP-YYYY-NNNNN` invoice; refused when the total is 0 or less. Notifies holders of `platform_billing:view`. |
+| `admin_record_platform_payment(invoice, reference, paid_on)` | Marks an issued invoice paid. |
+| `admin_void_platform_invoice(invoice, reason)` | Keeps the invoice, frees its records for a new invoice. |
+| `admin_platform_summary()`, `admin_platform_monthly(months)`, `admin_isp_revenue()` | Platform analytics (counts and money only, no ISP customer rows). |
+| `request_support_access(tenant, reason)` | Any platform staff member. One open request per person per ISP. Notifies holders of `staff:manage`. |
+| `decide_support_access(grant, approve\|decline\|revoke, hours 1–72)` | ISP `staff:manage` (the owner). |
+| `admin_support_grants()` | Super admins see all requests, support admins their own; `mine` marks the caller's. |
+
+ISP staff with `platform_billing:view` (owner, finance) read their own agreements, fee records and non-draft invoices directly through RLS.
+
+### Routes
+
+| Route | Who |
+|---|---|
+| `/admin`, `/admin/agreements`, `/admin/invoices`, `/admin/invoices/{id}`, `/admin/audit`, `/admin/tenants/{id}` (billing parts) | Super administrator |
+| `/admin/support-access`, `/admin/tenants/{id}` (support card, network under an active grant) | Any platform staff |
+| `/settings/billing`, `/settings/billing/invoices/{id}` | `platform_billing:view` |
+| `/settings/support-access` | `staff:manage` |
+
 ## Planned endpoints
 
 | Route | Phase | Notes |

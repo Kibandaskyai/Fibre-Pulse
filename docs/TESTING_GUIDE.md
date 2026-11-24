@@ -56,3 +56,8 @@ During Phase 1, RLS on `payments` was disabled temporarily; 8 tests failed immed
 - `tests/unit/bi-reports.test.ts` (4): CSV numbers and formula safety, landscape PDF, which roles see which report, Kenyan day boundaries for network readings.
 - `tests/e2e/phase5.spec.ts` (10): ticket from creation to resolution (resolution required), job created from the ticket and completed by the technician (notes required), notifications and mark-read, customer profile links, map privacy by role, every BI report with CSV and PDF downloads, report access by role, phone layout. Needs `npm run db:seed` after a reset.
 
+## Phase 6 additions
+
+- `tests/db/platform-billing.test.ts` (12): only super admins manage agreements; drafts on the 1st of a month; fees on verified subscription payments in Kenyan time (late-night edge); recalculation gives adjustments, never double charges; unfinished months and months without an agreement refused; fee records frozen even for the owner role; a new rate cannot reach back; invoice numbering, VAT, void and reissue, payment; RLS (owner and finance see invoices, network admin does not); analytics permissions; support access request, approve, revoke and audit.
+- `tests/unit/platform-billing.test.ts` (4): overdue state, rate formatting, support grant states, monthly netting of adjustments.
+- `tests/e2e/phase6.spec.ts` (9): finance records and verifies a payment dated last month; super admin calculates the fee and issues an invoice; finance sees it, network admin is refused; payment recorded; draft edit and signer-name check; support admin request, owner approve and revoke, read-only network view; audit entries; role limits; phone layout. Safe to re-run: each run adds a new payment, which becomes an adjustment.

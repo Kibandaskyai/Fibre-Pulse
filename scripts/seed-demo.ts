@@ -11,6 +11,7 @@
  *   - "Mwangaza Fibre Networks" (active) with one user per ISP role
  *   - "Pwani Connect" (pending) to demonstrate tenant isolation
  *   - fictional packages and customers, and SIMULATED routers
+ *   - (Phase 6) Mwangaza's signed 2.75% agreement from October 2026
  *   - (Phase 4) a demo connector for the simulated routers. Its token is
  *     written to connector/mikrotik-agent/.env (git-ignored) so
  *     `npm run connector:demo` reports SIMULATED readings to the local app.
@@ -256,6 +257,28 @@ async function main() {
       }),
     );
     await agent.auth.signOut();
+  }
+
+  // Phase 6: Mwangaza's commercial agreement, signed through the same admin
+  // functions the platform pages use: 2.75% of gross subscription
+  // collections from 1 October 2026. No fees or invoices are seeded, because
+  // the demo has no verified payments; record and verify a real manual
+  // payment, then calculate fees from /admin/tenants to see an invoice.
+  const { count: signedCount } = await db.from("commercial_agreements").select("id", { count: "exact", head: true }).eq("tenant_id", mwangaza).neq("status", "draft");
+  if (!signedCount) {
+    const asAdmin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error: adminSignIn } = await asAdmin.auth.signInWithPassword({ email: "admin@fibrepulse.test", password: DEMO_PASSWORD });
+    if (adminSignIn) throw adminSignIn;
+    const draft = (await must(db.from("commercial_agreements").select("id").eq("tenant_id", mwangaza).eq("status", "draft").maybeSingle())) as { id: string } | null;
+    const { data: agreementId, error: saveError } = await asAdmin.rpc("admin_save_agreement", {
+      p_tenant: mwangaza, p_agreement: draft?.id ?? null, p_fee_rate: 0.0275, p_fee_basis: "gross",
+      p_excluded: ["installation", "equipment", "other"], p_effective_from: "2026-10-01",
+      p_notes: "Pilot terms (fictional demo): 2.75% of gross internet subscription collections.",
+    });
+    if (saveError) throw saveError;
+    const { error: signError } = await asAdmin.rpc("admin_sign_agreement", { p_agreement: agreementId, p_signed_by: "Wanjiku Kamau, Owner" });
+    if (signError) throw signError;
+    await asAdmin.auth.signOut();
   }
 
   await db.from("notifications").insert({

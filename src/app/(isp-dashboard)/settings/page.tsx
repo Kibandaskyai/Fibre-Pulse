@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Building2, ChevronRight, ShieldCheck, Users } from "lucide-react";
+import { Building2, ChevronRight, KeyRound, ReceiptText, ShieldCheck, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { requireTenant } from "@/lib/auth/guards";
@@ -14,6 +14,8 @@ export default async function SettingsPage() {
   const links = [
     { href: "/settings/organisation", label: "Organisation", text: "ISP name, county, contact phone.", icon: Building2, show: p.has("settings:manage") },
     { href: "/settings/staff", label: "Staff and roles", text: "Invite staff, change roles, disable access.", icon: Users, show: p.has("staff:manage") },
+    { href: "/settings/billing", label: "FibrePulse billing", text: "Your agreement, monthly platform fees and invoices.", icon: ReceiptText, show: p.has("platform_billing:view") },
+    { href: "/settings/support-access", label: "Support access", text: "Approve or revoke FibrePulse support requests.", icon: KeyRound, show: p.has("staff:manage") },
   ].filter((l) => l.show);
 
   return (
