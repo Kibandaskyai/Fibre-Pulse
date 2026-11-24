@@ -7,10 +7,11 @@ import { runCommand } from "./commands.js";
 import type { AgentConfig } from "./config.js";
 import { log } from "./log.js";
 import { pollRouter, type Counters, type Reading } from "./poller.js";
+import { RadiusPolicy } from "./radius.js";
 import { RouterOsClient } from "./routeros.js";
 import { simulateReading } from "./simulator.js";
 
-export const AGENT_VERSION = "0.4.0";
+export const AGENT_VERSION = "0.5.0";
 
 export class Agent {
   private cloud: CloudClient;
@@ -19,9 +20,12 @@ export class Agent {
   private buffer: { routers: Reading[]; simulated?: boolean }[] = [];
   private stopped = false;
   private cloudFailures = 0;
+  /** Who may connect, for the ISP's RADIUS server (RADIUS mode only). */
+  readonly radius: RadiusPolicy;
 
   constructor(private cfg: AgentConfig, cloud?: CloudClient) {
     this.cloud = cloud ?? new CloudClient(cfg.cloudUrl, cfg.token, cfg.requestTimeoutMs);
+    this.radius = new RadiusPolicy(cfg.radiusCacheFile ?? null);
   }
 
   /** Routers this agent should poll in its mode (real or simulated). */
@@ -41,6 +45,7 @@ export class Agent {
   async sync(): Promise<SyncResponse> {
     this.config = await this.cloud.sync(AGENT_VERSION);
     this.cloudFailures = 0;
+    if (Array.isArray(this.config.radius_access)) this.radius.load(this.config.radius_access);
     for (const cmd of this.config.commands) await this.execute(cmd);
     return this.config;
   }
@@ -61,7 +66,7 @@ export class Agent {
       if (typeof client === "string") message = client;
       else {
         try {
-          message = await runCommand(client, cmd.type, cmd.pppoe_username);
+          message = await runCommand(client, cmd.type, cmd.pppoe_username, this.config?.access_control ?? "router_secrets");
           success = true;
         } catch (e) {
           message = (e as Error).message;

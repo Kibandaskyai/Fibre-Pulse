@@ -61,3 +61,11 @@ During Phase 1, RLS on `payments` was disabled temporarily; 8 tests failed immed
 - `tests/db/platform-billing.test.ts` (12): only super admins manage agreements; drafts on the 1st of a month; fees on verified subscription payments in Kenyan time (late-night edge); recalculation gives adjustments, never double charges; unfinished months and months without an agreement refused; fee records frozen even for the owner role; a new rate cannot reach back; invoice numbering, VAT, void and reissue, payment; RLS (owner and finance see invoices, network admin does not); analytics permissions; support access request, approve, revoke and audit.
 - `tests/unit/platform-billing.test.ts` (4): overdue state, rate formatting, support grant states, monthly netting of adjustments.
 - `tests/e2e/phase6.spec.ts` (9): finance records and verifies a payment dated last month; super admin calculates the fee and issues an invoice; finance sees it, network admin is refused; payment recorded; draft edit and signer-name check; support admin request, owner approve and revoke, read-only network view; audit entries; role limits; phone layout. Safe to re-run: each run adds a new payment, which becomes an adjustment.
+
+## Phase 7 additions
+
+- `tests/db/automation.test.ts` (11): expiry queues a disconnect, renewal reconnects, early replacement does not; cron schedules installed; access-control mode is owner-only; the connector receives the RADIUS list only in RADIUS mode; SMS outbox functions are service-role only and claim correctly; monthly billing is super-admin or scheduled only, calculates and invoices, is safe to repeat, and is invisible to ISP staff.
+- `tests/db/security-sweep.test.ts` (9): see SECURITY_GUIDE › Phase 7.
+- `tests/connector/radius.test.ts` (7): policy decisions and MikroTik speeds, disk cache, settings validation, the HTTP endpoint (header and Basic secret, wrong secret, health), RADIUS-mode disconnects never touch PPPoE secrets.
+- `tests/unit/sms.test.ts` (5): Kenyan number format, 160-character text, the log provider never "sends", Safaricom settings and token reuse.
+- `tests/e2e/phase7.spec.ts` (3): owner switches access control, finance is refused, automatic invoicing shown to the super admin.

@@ -23,11 +23,16 @@ export type RouterConfig = {
 
 export type Command = { id: string; router_id: string; type: "disconnect_pppoe" | "reconnect_pppoe"; pppoe_username: string };
 
+export type RadiusEntry = { username: string; allowed: boolean; download_mbps: number | null; upload_mbps: number | null; expires_at: string | null };
+
 export type SyncResponse = {
   agent_id: string;
   tenant_id: string;
   poll_interval_seconds: number;
   router_enforcement: boolean;
+  access_control?: "router_secrets" | "radius";
+  /** Present only when the ISP uses RADIUS and enforcement is on. */
+  radius_access?: RadiusEntry[] | null;
   routers: RouterConfig[];
   commands: Command[];
 };

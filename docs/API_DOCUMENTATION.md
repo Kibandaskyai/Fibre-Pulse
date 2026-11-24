@@ -94,6 +94,17 @@ ISP staff with `platform_billing:view` (owner, finance) read their own agreement
 | `/settings/billing`, `/settings/billing/invoices/{id}` | `platform_billing:view` |
 | `/settings/support-access` | `staff:manage` |
 
+## Phase 7
+
+| Function | Who | Notes |
+|---|---|---|
+| `set_access_control(tenant, 'router_secrets'\|'radius')` | `settings:manage` (owner) | How disconnects work; RADIUS mode adds `access_control` and `radius_access` to `connector_sync`. |
+| `admin_run_monthly_billing(month default last month, due_days default 14)` | super admin or the scheduled job | Calculates every active ISP, invoices each with fees waiting, records a row in `platform_billing_runs`. |
+| `outbox_claim_sms(limit)`, `outbox_mark(id, status, error)` | `service_role` only | Used by `scripts/deliver-sms.ts`. |
+
+`connector_sync` now also returns `access_control` and, in RADIUS mode with disconnects on, `radius_access: [{username, allowed, download_mbps, upload_mbps, expires_at}]`.
+
+Connector local endpoint (inside the ISP network, not FibrePulse): `POST /radius/authorize` `{"username"}` → `200 {"reply:Mikrotik-Rate-Limit": "up/down"}`, `401` refused, `404` unknown; `GET /health`. See MIKROTIK_INTEGRATION.md.
 ## Planned endpoints
 
 | Route | Phase | Notes |

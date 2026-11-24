@@ -40,6 +40,8 @@ The 23 tables required by the spec, plus additions marked (+).
 
 **Commercial:** commercial_agreements (versioned; terms frozen after signing; no overlapping in-force periods), platform_fee_records (one per tenant per period; fee = round(eligible × rate, 2); corrections are adjustment rows), platform_invoices (+ `notes`, `void_reason`, `tax_rate`; numbers from `private.platform_invoice_seq`). Fee records may be negative only as adjustments (`adjustment_of`). Drafts start on the 1st of a month (`commercial_agreements_month_start` moves a registration draft to the next 1st).
 
+**Automation (Phase 7):** platform_billing_runs (+, one row per monthly billing run with per-ISP results; super admins only). `tenants.settings.access_control` is `router_secrets` (default) or `radius`. `pg_cron` jobs: `fibrepulse-expire-subscriptions` (every 5 minutes), `fibrepulse-monthly-billing` (1st, 03:00 UTC).
+
 ## Guards that protect money
 
 | Rule | Enforced by |

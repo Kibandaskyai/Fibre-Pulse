@@ -1,4 +1,4 @@
-# MikroTik integration (Phase 4)
+# MikroTik integration (Phase 4, RADIUS in Phase 7)
 
 FibrePulse reads MikroTik routers through the **FibrePulse Connector Agent** (`connector/mikrotik-agent/`), a small Node.js program that runs on a computer **inside the ISP network**. The connector talks to routers locally over the RouterOS v7 REST API and reports to FibrePulse **outbound** over HTTPS. Router management ports are never opened to the internet.
 
@@ -49,19 +49,91 @@ Alerts are de-duplicated (one open alert per problem) and notify members with `a
 
 Router passwords can instead stay only on the connector machine: set `ROUTER_CREDENTIALS_FILE` to a JSON file `{ "<router id>": { "username": "...", "password": "..." } }` and leave them out of FibrePulse.
 
-## Disconnecting suspended customers
+## Disconnecting customers (suspended or package ended)
 
-Required by the pilot ISP (23 Nov 2026). Three switches must all be on, so it can never happen by accident:
+Required by the pilot ISP: suspension (23 Nov 2026) and a package running out without renewal (24 Nov 2026) both cut service. Three switches must all be on, so it can never happen by accident:
 
-1. The **owner** turns on *Settings → Organisation → Disconnect suspended customers on the router* (audited).
+1. The **owner** turns on *Settings → Organisation → Disconnect customers who are suspended or whose package has ended* (audited).
 2. The connector runs with `ALLOW_ROUTER_WRITES=true`.
 3. The router user has the `write` policy.
 
-Then suspending a subscription queues `disconnect_pppoe`: the connector sets `/ppp/secret` `disabled=yes` for the customer's PPPoE username and removes their `/ppp/active` session. Restoring queues `reconnect_pppoe` (`disabled=no`). If a disconnect was still queued when the customer is restored, it is cancelled instead. Nothing else on the router is ever changed. The customer profile shows each command and its result; failed, blocked or expired ones can be retried by the owner.
+What queues a `disconnect_pppoe` command:
 
-A command is **blocked** (and the profile says why) when the customer has no PPPoE username or FibrePulse does not know their router yet. The router is learned from the customer's first session or set on the profile. Sent commands with no answer after 10 minutes are re-sent (3 attempts); queued commands expire after 24 hours.
+- suspending a subscription;
+- a package reaching its end date with no renewal. The database checks every 5 minutes (`pg_cron` job `fibrepulse-expire-subscriptions`). A package replaced early by a renewal, upgrade or downgrade never disconnects.
 
-**Limits for the engineer:** expiry and cancellation do not disconnect (ask the ISP). Hotspot users are not disconnected. If the ISP uses **RADIUS**, PPPoE secrets are not on the router, so disconnect must be done in RADIUS (CoA/disable user) instead; `connector/mikrotik-agent/src/commands.ts` is the place to add it.
+Restoring, renewing or buying a new package queues `reconnect_pppoe`. If a disconnect was still queued, it is cancelled instead. Cancellation does not disconnect (not decided by the ISP yet).
+
+A command is **blocked** (and the profile says why) when the customer has no PPPoE username or FibrePulse does not know their router yet. The router is learned from the customer's first session or set on the profile. Sent commands with no answer after 10 minutes are re-sent (3 attempts); queued commands expire after 24 hours. Hotspot users are not disconnected.
+
+### Access control: router secrets or RADIUS
+
+The owner chooses under *Settings → Organisation → Access control*:
+
+| Mode | Disconnect does | Reconnect does |
+|---|---|---|
+| PPPoE secrets on the MikroTik router (default) | `/ppp/secret disabled=yes` and removes the `/ppp/active` session | `/ppp/secret disabled=no` |
+| RADIUS server (pilot ISP, 24 Nov 2026) | removes the `/ppp/active` session only | nothing on the router; RADIUS accepts the next dial-in |
+
+## RADIUS
+
+The pilot ISP authenticates PPPoE customers with RADIUS. FibrePulse decides **who may connect and at what speed**. The ISP's own RADIUS server (for example FreeRADIUS) still checks passwords, so **customer PPPoE passwords never leave the ISP's network**.
+
+How it fits together:
+
+1. On every sync (about every 15 seconds), FibrePulse sends the connector the list of PPPoE usernames. Each entry says whether the customer has a live package and gives its speeds. The list is sent only in RADIUS mode with disconnects turned on.
+2. The connector keeps the list in memory and on disk (`RADIUS_CACHE_FILE`). It answers a local HTTP endpoint for FreeRADIUS. If the internet link to FibrePulse drops, the last list keeps working.
+3. When a customer dials in, the MikroTik router asks RADIUS. FreeRADIUS checks the password, then asks the connector. The connector answers in one of three ways:
+   - `200` with `Mikrotik-Rate-Limit` (upload/download from the package): accept.
+   - `401`: reject, because there is no live package.
+   - `404`: not a FibrePulse customer, so FreeRADIUS decides on its own (useful for staff or infrastructure accounts).
+4. When FibrePulse disconnects a customer, the connector drops the live session. The router then asks RADIUS again, and RADIUS refuses.
+
+Connector settings (`connector/mikrotik-agent/.env`):
+
+```bash
+RADIUS_POLICY_PORT=18120          # 0 = off
+RADIUS_POLICY_HOST=10.0.0.5       # a LAN address FreeRADIUS can reach (default 127.0.0.1)
+RADIUS_POLICY_SECRET=<at least 24 random characters>   # openssl rand -base64 32
+RADIUS_CACHE_FILE=/var/lib/fibrepulse/radius.json
+```
+
+FreeRADIUS 3 (`mods-enabled/rest`). The secret goes as the HTTP Basic password; newer versions can send header `X-FibrePulse-Radius-Secret` instead. **Check these lines against the ISP's FreeRADIUS version before going live.**
+
+```
+rest fibrepulse {
+    connect_uri = "http://10.0.0.5:18120"
+    authorize {
+        uri = "${..connect_uri}/radius/authorize"
+        method = "post"
+        body = "json"
+        data = "{\"username\": \"%{User-Name}\"}"
+        auth = "basic"
+        username = "freeradius"
+        password = "<RADIUS_POLICY_SECRET>"
+    }
+}
+```
+
+In `sites-enabled/default`, under `authorize`, call `fibrepulse` after the module that loads the password (`files` or `sql`):
+
+```
+authorize {
+    ...
+    sql
+    fibrepulse
+    if (notfound) {
+        ok   # not a FibrePulse customer: keep the ISP's own decision
+    }
+    ...
+}
+```
+
+On the MikroTik router: `/ppp aaa set use-radius=yes accounting=yes`, plus `/radius add service=ppp address=<FreeRADIUS IP> secret=<radius secret>`. Optionally add `/radius incoming set accept=yes`, so FreeRADIUS CoA can also be used later.
+
+Health check: `curl http://10.0.0.5:18120/health` returns the number of customers in the list and when it was last updated.
+
+**For the engineer:** test with one customer before switching the pilot over: renew, let the package expire, then suspend and restore. Accounting (session start and stop) still goes to the ISP's RADIUS. FibrePulse reads sessions from the router API, not from RADIUS accounting.
 
 ## Not measured
 

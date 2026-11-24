@@ -8,6 +8,7 @@
 import { Agent, AGENT_VERSION } from "./agent.js";
 import { loadConfig } from "./config.js";
 import { log } from "./log.js";
+import { startRadiusServer } from "./radius.js";
 
 async function main() {
   // Read .env from the working directory if present. Variables already set
@@ -34,10 +35,12 @@ async function main() {
     log("info", "done", { routers: agent.routers().length });
     return;
   }
+  const radiusServer = cfg.radiusPort ? startRadiusServer(agent.radius, cfg.radiusHost, cfg.radiusPort, cfg.radiusSecret) : null;
   for (const sig of ["SIGINT", "SIGTERM"] as const) {
     process.on(sig, () => {
       log("info", "stopping");
       agent.stop();
+      radiusServer?.close();
     });
   }
   await agent.run();

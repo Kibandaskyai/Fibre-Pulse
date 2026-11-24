@@ -12,6 +12,11 @@ export type AgentConfig = {
   simulate: boolean;
   localCredentials: LocalCredentials;
   maxBufferedBatches: number;
+  /** Local RADIUS policy endpoint for FreeRADIUS rlm_rest (off when port is 0). */
+  radiusPort: number;
+  radiusHost: string;
+  radiusSecret: string;
+  radiusCacheFile: string | null;
 };
 
 const bool = (v: string | undefined) => /^(1|true|yes|on)$/i.test(v ?? "");
@@ -43,7 +48,16 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     }
   }
 
+  const radiusPort = Number(env.RADIUS_POLICY_PORT ?? 0);
+  if (!Number.isInteger(radiusPort) || radiusPort < 0 || radiusPort > 65535) throw new Error("RADIUS_POLICY_PORT must be a port number (or 0 to turn it off).");
+  const radiusSecret = (env.RADIUS_POLICY_SECRET ?? "").trim();
+  if (radiusPort && radiusSecret.length < 24) throw new Error("RADIUS_POLICY_SECRET must be at least 24 characters when RADIUS_POLICY_PORT is set.");
+
   return {
+    radiusPort,
+    radiusHost: env.RADIUS_POLICY_HOST || "127.0.0.1",
+    radiusSecret,
+    radiusCacheFile: env.RADIUS_CACHE_FILE || null,
     cloudUrl: url,
     token,
     pollIntervalMs: seconds(env.POLL_INTERVAL_SECONDS, 60, 15, 3600),

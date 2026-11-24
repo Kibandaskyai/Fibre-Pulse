@@ -69,3 +69,10 @@
 - Support administrators cannot see fees, agreements, invoices or the audit log (database functions and pages both check).
 - Commercial records cannot be written through the API at all except via the audited `admin_*` functions. Signed terms, fee records and invoice amounts are frozen by triggers, including for the database owner role, so a historical rate can never change silently.
 - Simulated and unverified payments can never become fee revenue.
+
+## Phase 7 notes
+
+- **Catalogue-driven checks** (`tests/db/security-sweep.test.ts`) cover every current and future table and function: tenant isolation, RLS on, no public writes, the public may call only the three token-checked connector functions, `private` is not exposed, and every SECURITY DEFINER function pins `search_path`.
+- **RADIUS:** customer PPPoE passwords are never stored in FibrePulse. The connector's RADIUS endpoint needs a shared secret of at least 24 characters, compared in constant time. Bind it to a LAN address only. The list it serves holds usernames, an allowed flag and speeds, nothing more.
+- **Scheduled jobs** run as the database owner and are recognised by `private.is_system_job()`, which is false for every API session.
+- **SMS worker:** holds the service role key and Safaricom credentials on its own host. `outbox_claim_sms` and `outbox_mark` are executable by `service_role` only. Phone numbers are masked in its logs.

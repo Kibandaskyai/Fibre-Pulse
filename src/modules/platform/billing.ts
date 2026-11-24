@@ -322,3 +322,16 @@ export function feeMonths(records: FeeRecord[]) {
     .map((m) => ({ ...m, eligible: Math.round(m.eligible * 100) / 100, fee: Math.round(m.fee * 100) / 100 }))
     .sort((a, b) => b.period_start.localeCompare(a.period_start));
 }
+
+export type BillingRun = { id: string; period_start: string; trigger: "schedule" | "manual"; started_at: string; finished_at: string | null; invoices: number; failures: number };
+
+/** Recent automatic (and manual) monthly billing runs. Super admins only, through RLS. */
+export async function billingRuns(db: SupabaseClient, limit = 6): Promise<Result<BillingRun[]>> {
+  const { data, error } = await db
+    .from("platform_billing_runs")
+    .select("id, period_start, trigger, started_at, finished_at, invoices, failures")
+    .order("started_at", { ascending: false })
+    .limit(limit);
+  if (error) return { ok: false, message: friendlyDbError(error, "Could not load billing runs.") };
+  return { ok: true, data: (data ?? []) as BillingRun[] };
+}

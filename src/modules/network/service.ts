@@ -287,6 +287,9 @@ export const retryRouterCommand = (db: SupabaseClient, id: string) => rpc<null>(
 export const setRouterEnforcement = (db: SupabaseClient, tenantId: string, enabled: boolean) =>
   rpc<null>(db, "set_router_enforcement", { p_tenant: tenantId, p_enabled: enabled }, "Could not change the setting.");
 
+export const setAccessControl = (db: SupabaseClient, tenantId: string, mode: "router_secrets" | "radius") =>
+  rpc<null>(db, "set_access_control", { p_tenant: tenantId, p_mode: mode }, "Could not change the setting.");
+
 export async function routerEnforcementEnabled(db: SupabaseClient, tenantId: string): Promise<boolean> {
   const { data } = await db.from("tenants").select("settings").eq("id", tenantId).maybeSingle();
   return Boolean((data?.settings as { router_enforcement?: boolean } | null)?.router_enforcement);
