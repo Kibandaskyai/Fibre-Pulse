@@ -457,7 +457,7 @@ describe("scale: about 10,000 users", () => {
     };
     const first = await run();
     const second = await run(); // the steady state: every session already known
-    const [act] = await q<{ n: number }>(`select count(*)::int as n from hotspot_vouchers where tenant_id = $1 and code like 'S%' and status = 'active' and device_id is not null`, [tenant]);
+    const [act] = await q<{ n: number }>(`select count(*)::int as n from hotspot_vouchers where tenant_id = $1 and code ~ '^S[0-9]{5}$' and status = 'active' and device_id is not null`, [tenant]);
     expect(act.n).toBe(3000);
     expect(first).toBeLessThan(5000);
     expect(second).toBeLessThan(2000);
