@@ -30,7 +30,7 @@ export const ISP_NAV: NavItem[] = [
   { href: "/support", label: "Support Desk", icon: "support", permission: "tickets:view", phase: 5, description: "Customer tickets, priorities, assignment and resolution." },
   { href: "/field-operations", label: "Field Operations", icon: "field", permission: "jobs:view", phase: 5, description: "Installations, maintenance visits and fault investigations for technicians." },
   { href: "/reports", label: "Reports", icon: "reports", permission: null, phase: 3, description: "Financial, customer, subscription, network, support and area reports with CSV/PDF downloads." },
-  { href: "/settings", label: "Settings", icon: "settings", permission: null, phase: 1, description: "Organisation details, staff and roles." },
+  { href: "/settings", label: "Settings", icon: "settings", permission: null, phase: 1, description: "Organisation details, staff and roles, FibrePulse billing and support access." },
 ];
 
 /** Technicians see their own jobs even without jobs:view. */

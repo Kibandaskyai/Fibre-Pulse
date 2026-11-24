@@ -4,7 +4,7 @@
 
 FibrePulse is a multi-tenant ISP operations and business intelligence platform for Kenyan fibre internet providers: customers, subscriptions, M-Pesa and bank collections, MikroTik network monitoring, support and field operations in one secure workspace.
 
-> Status: **Phases 1 to 5 complete** (foundation, billing, financial analytics, network monitoring, business operations). See [PROJECT_STATUS.md](PROJECT_STATUS.md) for exactly what is built, tested, simulated and not yet built.
+> Status: **Phases 1 to 6 complete** (foundation, billing, financial analytics, network monitoring, business operations, the FibrePulse commercial platform). See [PROJECT_STATUS.md](PROJECT_STATUS.md) for exactly what is built, tested, simulated and not yet built.
 
 ## Stack
 

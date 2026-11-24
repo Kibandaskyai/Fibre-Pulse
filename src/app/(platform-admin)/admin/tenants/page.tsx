@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -46,7 +47,7 @@ export default async function TenantsPage() {
                 {tenants.data.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell>
-                      <p className="font-medium">{t.name}</p>
+                      <Link href={`/admin/tenants/${t.id}`} className="font-medium text-primary hover:underline">{t.name}</Link>
                       <p className="text-xs text-muted-foreground">{t.slug}</p>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">

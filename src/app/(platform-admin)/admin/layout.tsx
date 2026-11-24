@@ -4,12 +4,16 @@ import { PLATFORM_NAV } from "@/components/layout/nav-config";
 import { requirePlatformStaff } from "@/lib/auth/guards";
 import { PLATFORM_ROLE_LABELS } from "@/lib/auth/permissions";
 
+const SUPER_ONLY = new Set(["/admin/agreements", "/admin/invoices", "/admin/audit"]);
+
 export default async function PlatformAdminLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requirePlatformStaff();
   const roleLabel = PLATFORM_ROLE_LABELS[ctx.platformRole!];
+  // Fees, agreements, invoices and the audit log are for super administrators only.
+  const nav = ctx.platformRole === "super_admin" ? PLATFORM_NAV : PLATFORM_NAV.filter((i) => !SUPER_ONLY.has(i.href));
   return (
     <AppShell
-      nav={PLATFORM_NAV}
+      nav={nav}
       subtitle="Platform administration"
       areaLabel={`FibrePulse ${roleLabel}`}
       unreadCount={0}

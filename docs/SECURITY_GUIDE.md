@@ -62,3 +62,10 @@
 - BI report functions return aggregates only and check the report permission inside the database, as well as in the page and export route.
 - Email and SMS copies are queued with the recipient's profile only; the delivery worker (not built) must look up contact details server-side with the service role and must respect the person's preferences already applied at insert time.
 
+## Phase 6 notes
+
+- Platform staff have no standing access to ISP customer, payment or network rows. A support administrator asks with a reason; only the ISP owner (`staff:manage`) can approve, for 1 to 72 hours, and can revoke at any time. Access is read-only, limited to the person who asked, and every request and decision is in the audit log.
+- Platform analytics functions return totals and counts only; the overview never lists ISP customers.
+- Support administrators cannot see fees, agreements, invoices or the audit log (database functions and pages both check).
+- Commercial records cannot be written through the API at all except via the audited `admin_*` functions. Signed terms, fee records and invoice amounts are frozen by triggers, including for the database owner role, so a historical rate can never change silently.
+- Simulated and unverified payments can never become fee revenue.

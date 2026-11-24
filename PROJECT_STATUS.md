@@ -1,6 +1,6 @@
 # FibrePulse project status
 
-_Last updated: 24 November 2026 (end of Phase 5)._
+_Last updated: 24 November 2026 (end of Phase 6)._
 
 Legend: **Done and tested** · **Simulated** (works, uses labelled test data) · **Not built** (planned phase in brackets).
 
@@ -129,12 +129,41 @@ Test totals at end of Phase 5: **319 unit, database and connector tests and 46 b
 - Which email and SMS provider to use for notifications (e.g. Africa's Talking for SMS).
 - Map tiles: OpenStreetMap's public tiles are fine for a pilot; production should use a commercial tile provider.
 
+## Phase 6: FibrePulse commercial platform
+
+| Area | Status | Evidence |
+|---|---|---|
+| Commercial agreements (`/admin/agreements`, ISP page): versioned drafts, sign (frozen), end; one draft at a time; start on the 1st of a month; a new version supersedes the old one from its start month and cannot reach back into calculated months | Done and tested | `tests/db/platform-billing.test.ts`, e2e `phase6.spec.ts` |
+| Fee engine: per ISP per calendar month (Kenyan time), on verified, successful, non-simulated payments in charged categories; gross or less 16% VAT; recalculation adds adjustments (never edits a month); "calculate for every ISP" run | Done and tested | DB tests (Oct 2026 figures, late-night edge, reversal adjustment) |
+| Platform invoices (`/admin/invoices`): collect uninvoiced fees, number `FP-YYYY-NNNNN`, VAT % per invoice (0 for now), due date, overdue shown after due date, record payment by reference, void with reason (fees freed for a new invoice); amounts frozen | Done and tested | DB and e2e |
+| ISP side: `/settings/billing` for owner and finance (agreement terms, monthly fees, invoices, balance); notification when an invoice is issued | Done and tested | e2e (finance sees it, network admin is refused) |
+| Platform overview (`/admin`): ISPs, eligible collections, fees earned, uninvoiced, unpaid and overdue, month so far, paid, signed agreements, subscriber counts; fees by month and onboarding charts; revenue per ISP | Done and tested | DB tests (permissions), screenshots |
+| Support access: platform staff request with a reason, the ISP owner approves (1 to 72 hours), declines or revokes at `/settings/support-access`; read-only network view only while active; all audited | Done and tested | DB and e2e |
+| Audit log (`/admin/audit`): agreement, fee, invoice, ISP and support-access changes in plain words | Done and tested | e2e |
+| Role limits: support administrators see ISP counts and their own support requests only; fees, agreements, invoices and the audit log are for super administrators | Done and tested | DB and e2e |
+| Demo data: Mwangaza's agreement signed at 2.75% from October 2026. No fees or invoices are seeded because demo payments are simulated | Simulated | `npm run db:seed` |
+
+Test totals at end of Phase 6: **79 unit tests, 256 database tests and 55 browser tests, all passing**, plus lint, typecheck and production build.
+
+### Fee rules
+
+- Fee = rate × eligible collections for the calendar month in Kenyan time. Eligible means successful, verified, not simulated, and in a category the agreement charges (internet subscriptions always; installation, equipment and other are left out by default).
+- A month is calculated only after it ends and only under a signed agreement covering it.
+- Signed terms and calculated fees never change. A late verification or a reversal becomes an adjustment line on the next invoice. A negative balance waits until it is covered by later fees.
+- Invoices are issued without VAT until FibrePulse is VAT registered.
+
+### Open questions (Phase 6)
+
+- Is FibrePulse VAT registered, and from when? (Invoices default to 0% VAT.)
+- FibrePulse's legal name, KRA PIN, address and paybill/bank details for the invoice.
+- Should invoices be issued automatically each month, or stay a manual step? Should a PDF be emailed?
+
 ## Not built yet
 
 | Module | Phase |
 |---|---|
 | Email and SMS delivery for notifications (queue exists) | Software engineer |
-| Fee engine, platform invoices, agreements UI, platform revenue analytics, support-access UI | 6 |
+| Invoice PDF, FibrePulse legal and tax details on invoices, paying platform invoices by M-Pesa | Software engineer |
 | Live Safaricom Daraja / M-Pesa | Software engineer (see docs/MPESA_INTEGRATION_HANDOVER.md) |
 
 ## Known limitations

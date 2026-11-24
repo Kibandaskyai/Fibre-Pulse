@@ -38,7 +38,7 @@ The 23 tables required by the spec, plus additions marked (+).
 
 **Operations:** technicians (kept in step with the technician role by a trigger), support_tickets, ticket_events, installation_jobs, job_events (history tables are read-only to users and written by triggers), notifications (+ `dedupe_key`), notification_preferences (per ISP when `profile_id` is null, else per person; in_app/email/sms per type), notification_outbox (email/SMS copies for a future delivery worker). `routers.coverage_radius_m` (+) draws the coverage circle on the map.
 
-**Commercial:** commercial_agreements (versioned; terms frozen after signing; no overlapping in-force periods), platform_fee_records (one per tenant per period; fee = round(eligible × rate, 2); corrections are adjustment rows), platform_invoices.
+**Commercial:** commercial_agreements (versioned; terms frozen after signing; no overlapping in-force periods), platform_fee_records (one per tenant per period; fee = round(eligible × rate, 2); corrections are adjustment rows), platform_invoices (+ `notes`, `void_reason`, `tax_rate`; numbers from `private.platform_invoice_seq`). Fee records may be negative only as adjustments (`adjustment_of`). Drafts start on the 1st of a month (`commercial_agreements_month_start` moves a registration draft to the next 1st).
 
 ## Guards that protect money
 
@@ -53,6 +53,9 @@ The 23 tables required by the spec, plus additions marked (+).
 | No overlapping in-force agreements | exclusion constraint (btree_gist) |
 | A period charged once | partial unique index on platform_fee_records |
 | Invoice paid only by verified, successful payments | `private.recompute_invoice` |
+| Fee records permanent: only status and invoice link change, never deleted; void records frozen | trigger `platform_fee_records_frozen` |
+| Platform invoice amounts frozen; paid and void are final; never deleted | trigger `platform_invoices_frozen` |
+| No direct writes to agreements, fee records or platform invoices | no insert/update policies; Phase 6 `admin_*` functions only |
 | Verification, reversal and allocation are checked, audited, single transactions | Phase 2 SECURITY DEFINER functions; no direct write policies |
 
 ## Relationships (main)
