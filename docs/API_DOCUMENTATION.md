@@ -94,3 +94,31 @@ Ingest reading shape: `{router_id, collected_at, reachable, skipped?, error?, sy
 | `update_alert(alert, acknowledge\|resolve, note)` | `alerts:manage` | |
 | `network_watchdog(tenant)` | member | Stale connectors, unanswered commands, retention. At most once a minute. |
 | `network_traffic(tenant, hours, router)`, `router_history(router, hours)`, `network_availability(tenant, hours)` | `network:view` (RLS) | Charts and uptime. |
+
+## Business operations (Phase 5)
+
+Tickets and jobs are written directly through RLS (`tickets:edit`, `jobs:edit`, or `jobs:update_own` for the assigned technician). Triggers enforce the rules and write the history, so the app and any future API behave the same.
+
+| Function | Permission | Notes |
+|---|---|---|
+| `add_ticket_comment(ticket, note)` | `tickets:edit` or the assignee | Adds a `comment` event. |
+| `add_job_note(job, note)` | `jobs:edit` or the assigned technician | |
+| `technician_directory(tenant)` | `jobs:view` or `tickets:edit` | Active technicians with open job counts. |
+| `staff_directory(tenant)` | member | Names and roles for assignment lists. |
+| `notify_expiring_subscriptions(tenant)` | member | Packages ending within 3 days; once per period. Called with expiry on page load (worker later). |
+| `router_report(tenant, from, to)` | `reports:network` | Availability, polls, CPU/memory avg and max, peak sessions, offline alerts and warnings per router. Max 400 days. |
+| `bi_customer_report(tenant, from, to, area)` | `reports:financial` + `customers:view` | Monthly new customers, first connections, live at start, lapsed, disconnected, churn %. |
+| `bi_subscription_report(tenant, from, to, area)` | `reports:financial` | Per package: live, suspended, new, renewals, upgrades, downgrades, restores, lapsed, sales value. |
+| `bi_payment_report(tenant, from, to)` | `reports:financial` | Payments by method and status (matched, verified only, awaiting, rejected, failed, reversed), with unallocated money. |
+| `bi_support_report(tenant, from, to)` | `reports:support` | Rows of kind `ticket` (by category), `job` (by type) and `technician`: opened, resolved, open now, average and median hours, % within 24 h. |
+| `bi_area_report(tenant, from, to)` | `reports:financial` + `revenue:view` | Per area: customers, new, live packages, collected, outstanding, tickets, open tickets, routers and offline routers. |
+
+The BI functions are SECURITY DEFINER aggregates: they check the permission and tenant themselves and never return individual rows. Simulated customers and payments are left out.
+
+### Routes
+
+| Route | Notes |
+|---|---|
+| `GET /reports/bi/{customers\|subscriptions\|payments\|network\|support\|areas}/export?range=&from=&to=&area=&format=csv\|pdf` | Same permission as the report page; 403 otherwise. |
+| `GET /notifications/open/{id}` | Marks the notification read and redirects to its link (same-site paths only). |
+

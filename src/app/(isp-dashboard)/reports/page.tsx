@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Download, FileText } from "lucide-react";
+import { BarChart3, Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { dayRange, monthRange } from "@/lib/date-range";
 import { formatDate, formatDateTime, formatKsh, kenyaToday, PAYMENT_METHOD_LABELS, plural } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { change, loadRevenueReport, type RevenueReport } from "@/modules/analytics/report";
+import { BI_REPORTS, canOpen } from "@/modules/reports/bi";
 
 export const metadata: Metadata = { title: "Reports" };
 
@@ -25,15 +26,32 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const header = (
     <PageHeader
       title="Reports"
-      description="Daily and monthly financial reports, on screen and as CSV or PDF. All money is verified collections; simulated test data is never included."
+      description="Financial, customer, network and support reports, on screen and as CSV or PDF. All money is verified collections; simulated test data is never included."
     />
   );
+  const bi = BI_REPORTS.filter((d) => canOpen(d, perms));
   const later = (
     <Card>
       <CardHeader>
-        <CardTitle>More reports in Phase 5</CardTitle>
-        <CardDescription>Network uptime, support, field operations and business intelligence reports arrive with those modules. No figures are shown until real data exists.</CardDescription>
+        <CardTitle>Business intelligence reports</CardTitle>
+        <CardDescription>Pick a report, then filter by dates{bi.some((d) => d.area) ? " and area" : ""}. Each one downloads as CSV or PDF.</CardDescription>
       </CardHeader>
+      <CardContent>
+        {bi.length ? (
+          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="bi-reports">
+            {bi.map((d) => (
+              <li key={d.key}>
+                <Link href={`/reports/bi/${d.key}`} className="block h-full rounded-md border bg-background/40 p-3 transition-colors hover:border-primary/60 hover:bg-muted/40">
+                  <span className="flex items-center gap-2 text-sm font-medium"><BarChart3 className="size-4 text-primary" aria-hidden />{d.title}</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">{d.summary}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">Your role has no reports. Ask the owner if you need one.</p>
+        )}
+      </CardContent>
     </Card>
   );
   if (!financial) {

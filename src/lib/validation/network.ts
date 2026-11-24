@@ -41,6 +41,7 @@ export const routerSchema = z.object({
   latitude: optionalNumber("Latitude", -5, 5.5),
   longitude: optionalNumber("Longitude", 33.5, 42),
   monitoringEnabled: checkbox,
+  coverageRadiusM: optionalNumber("Coverage radius", 50, 50000).pipe(z.number().int("Use whole metres.").nullable()),
 });
 export type RouterInput = z.infer<typeof routerSchema>;
 

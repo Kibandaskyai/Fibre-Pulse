@@ -89,3 +89,11 @@ export function timeAgo(value: string | null | undefined, now = Date.now()): str
   if (s < 86400) return `${Math.round(s / 3600)} h ago`;
   return formatDateTime(value);
 }
+
+/** An ISO time as a datetime-local value in Kenyan time ("2026-11-24T14:30"), or "" for none. */
+export function isoToKenyaLocal(value: string | null | undefined): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Date(d.getTime() + 3 * 3600_000).toISOString().slice(0, 16);
+}

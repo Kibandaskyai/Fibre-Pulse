@@ -1,6 +1,6 @@
 # FibrePulse project status
 
-_Last updated: 23 November 2026 (end of Phase 4)._
+_Last updated: 24 November 2026 (end of Phase 5)._
 
 Legend: **Done and tested** · **Simulated** (works, uses labelled test data) · **Not built** (planned phase in brackets).
 
@@ -68,7 +68,7 @@ Test totals at end of Phase 2: **212 unit and database tests and 23 browser test
 | Revenue analytics (`/revenue`): collected vs previous period, applied vs credit, invoiced, awaiting verification, outstanding and overdue, reversals and refunds, packages sold, simulated exclusions; charts; package/area/method; cash shown as "not accepted"; outstanding by age and the 20 largest balances | Done and tested | e2e `phase3.spec.ts` |
 | Statement reconciliation (`/payments/reconcile`): upload an M-Pesa paybill or bank CSV, auto-detect layout and columns, preview, then verify exact matches (reference and amount) in one audited step; lists amount mismatches, simulated hits, statement money not in FibrePulse (kept for follow-up) and recorded payments missing from the statement | Done and tested | `tests/db/reconciliation.test.ts` (9), unit parser tests, e2e |
 | Daily collections and monthly revenue reports (`/reports`) on screen, plus CSV and PDF downloads of these and of any revenue page filter | Done and tested | unit, e2e (file names, contents, `%PDF`) |
-| Network, support and BI reports | Not built (5) | `/reports` says so; no figures shown |
+| Network, support and BI reports | Done in Phase 5 | see below |
 
 Test totals at end of Phase 3: **248 unit and database tests and 29 browser tests, all passing.**
 
@@ -102,16 +102,43 @@ Test totals at end of Phase 4: **283 unit, database and connector tests and 36 b
 - Hotspot customers are monitored but not disconnected.
 - RouterOS versions (7.1+ needed) and the computer that will run the connector.
 
+## Phase 5: Business operations
+
+| Area | Status | Evidence |
+|---|---|---|
+| Support desk (`/support`): tickets with category, priority, customer, assignment to active staff, comments, resolution notes required to resolve or close, full history; counts and filters; links from the customer profile | Done and tested | `tests/db/operations.test.ts`, e2e `phase5.spec.ts` |
+| Field operations (`/field-operations`): jobs from a ticket or customer, technician and visit time, technician "My jobs" view, start, notes, completion needs work notes and closes the job to the technician; job history on the ticket | Done and tested | DB and e2e |
+| Notifications: inbox with unread filter and mark-read, per-person and ISP-wide preferences per type and channel, de-duplication. Sent for new and assigned tickets and jobs, completed jobs, verified/rejected/reversed payments (never simulated), packages ending within 3 days, router outages (2+ real routers offline) | Done and tested | DB tests (16), e2e |
+| Email and SMS copies queued in `notification_outbox` | Queued, not delivered | needs a provider (software engineer TODO) |
+| Network map (`/network-map`, Leaflet): routers with coverage circles, outages, open jobs; exact customer points only for roles with `customers:view_location`, everyone else sees area totals | Done and tested | e2e (owner vs support agent) |
+| Business intelligence reports (`/reports/bi/…`), each with date range, area filter where it applies, CSV and PDF: customer acquisition and churn, subscription performance, payment reconciliation, network availability and router performance, support and field operations (with technician performance), geographical performance | Done and tested | DB tests (permissions and figures), unit (CSV, PDF), e2e downloads |
+| Demo data: 3 tickets, 1 job, approximate map points for demo customers, router coverage | Simulated | `npm run db:seed` |
+
+Test totals at end of Phase 5: **319 unit, database and connector tests and 46 browser tests, all passing.**
+
+### Report definitions
+
+- Churn: customers whose last package ended in the month (expired or cancelled) with no renewal since, divided by customers with a live package on the first day of that month.
+- Network availability: share of connector polls in which the router answered. Simulated routers are listed but left out of the headline figure; routers with no readings show "No readings".
+- Ticket and job times run from opening to resolution or completion; "within 24 h" is the share closed inside a day.
+- Geographical area is the customer's estate, else town, else county. Routers count in every area whose customers they serve.
+
+### Open questions for the pilot ISP (Phase 5)
+
+- Target response and resolution times for tickets (reports use 24 hours for now).
+- Which email and SMS provider to use for notifications (e.g. Africa's Talking for SMS).
+- Map tiles: OpenStreetMap's public tiles are fine for a pilot; production should use a commercial tile provider.
+
 ## Not built yet
 
 | Module | Phase |
 |---|---|
-| Support desk, field operations, notifications delivery (email/SMS), Leaflet map, BI reports | 5 |
+| Email and SMS delivery for notifications (queue exists) | Software engineer |
 | Fee engine, platform invoices, agreements UI, platform revenue analytics, support-access UI | 6 |
 | Live Safaricom Daraja / M-Pesa | Software engineer (see docs/MPESA_INTEGRATION_HANDOVER.md) |
 
 ## Known limitations
 
 - Invitation emails are not sent yet; the owner tells the person to sign up with the invited email.
-- Notifications are in-app only.
+- Notifications are delivered in-app only; email and SMS copies wait in `notification_outbox`.
 - No hosted Supabase project yet; everything runs locally.

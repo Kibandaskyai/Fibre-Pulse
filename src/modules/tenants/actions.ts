@@ -67,8 +67,9 @@ export async function inviteStaffAction(_prev: ActionResult | null, formData: Fo
       role: parsed.data.role as TenantRole,
     });
     if (!result.ok) return { ok: false, message: result.message };
-    // TODO(Phase 5): send the invitation email through the notification
-    // service. Until then the owner shares the sign-up link themselves.
+    // TODO: SOFTWARE ENGINEER - send the invitation email once an email
+    // provider delivers notification_outbox. Until then the owner shares the
+    // sign-up link themselves.
     revalidatePath("/settings/staff");
     return { ok: true, message: `Invitation created for ${parsed.data.email}. Ask them to sign up with that email.` };
   } catch (e) {

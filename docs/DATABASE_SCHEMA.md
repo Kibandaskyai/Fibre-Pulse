@@ -36,7 +36,7 @@ The 23 tables required by the spec, plus additions marked (+).
 
 **Network:** connector_agents (token stored as SHA-256 hash), routers (+ `api_scheme`, `verify_tls`, `consecutive_failures`), router_credentials (+, encrypted, no SELECT policy at all), router_interfaces, network_sessions, network_metrics, network_alerts (+ `dedupe_key`: one open alert per problem), router_commands (+, Phase 4: disconnect/reconnect queue with status `queued → sent → succeeded/failed`, or `blocked`, `cancelled`, `expired`; read-only to users). `customers.router_id` (+) is learned from sessions. Private: `connector_nonces` (replay protection, 1 hour), `watchdog_runs`. Retention: metrics 90 days, closed sessions 365 days.
 
-**Operations:** technicians, support_tickets, installation_jobs, notifications.
+**Operations:** technicians (kept in step with the technician role by a trigger), support_tickets, ticket_events, installation_jobs, job_events (history tables are read-only to users and written by triggers), notifications (+ `dedupe_key`), notification_preferences (per ISP when `profile_id` is null, else per person; in_app/email/sms per type), notification_outbox (email/SMS copies for a future delivery worker). `routers.coverage_radius_m` (+) draws the coverage circle on the map.
 
 **Commercial:** commercial_agreements (versioned; terms frozen after signing; no overlapping in-force periods), platform_fee_records (one per tenant per period; fee = round(eligible × rate, 2); corrections are adjustment rows), platform_invoices.
 

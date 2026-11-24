@@ -35,6 +35,8 @@ export async function changeSubscription(db: SupabaseClient, id: string, action:
 /** Close periods that have ended. Safe to call on every page load. */
 export async function expireDueSubscriptions(db: SupabaseClient, tenantId: string): Promise<number> {
   const { data } = await db.rpc("expire_due_subscriptions", { p_tenant: tenantId });
+  // Also warn about packages ending in the next 3 days (once per period, de-duplicated in SQL).
+  await db.rpc("notify_expiring_subscriptions", { p_tenant: tenantId });
   return Number(data ?? 0);
 }
 

@@ -29,7 +29,7 @@ export const ISP_NAV: NavItem[] = [
   { href: "/alerts", label: "Alerts", icon: "alerts", permission: "alerts:view", phase: 4, description: "Network alerts and incident history." },
   { href: "/support", label: "Support Desk", icon: "support", permission: "tickets:view", phase: 5, description: "Customer tickets, priorities, assignment and resolution." },
   { href: "/field-operations", label: "Field Operations", icon: "field", permission: "jobs:view", phase: 5, description: "Installations, maintenance visits and fault investigations for technicians." },
-  { href: "/reports", label: "Reports", icon: "reports", permission: null, phase: 3, description: "Daily and monthly financial reports with CSV/PDF downloads. Network, support and BI reports follow in Phase 5." },
+  { href: "/reports", label: "Reports", icon: "reports", permission: null, phase: 3, description: "Financial, customer, subscription, network, support and area reports with CSV/PDF downloads." },
   { href: "/settings", label: "Settings", icon: "settings", permission: null, phase: 1, description: "Organisation details, staff and roles." },
 ];
 

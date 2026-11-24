@@ -139,7 +139,11 @@ async function seedTenantRows(tenantId: string, owner: TestUser, label: string, 
   ).id;
   if (technicianProfile) {
     ids.technician = (
-      await q(`insert into technicians (tenant_id, profile_id, zone) values ($1, $2, 'Roysambu') returning id`, [
+      // Members with the technician role get a technician row automatically.
+      await q(
+        `insert into technicians (tenant_id, profile_id, zone) values ($1, $2, 'Roysambu')
+         on conflict (tenant_id, profile_id) do update set zone = excluded.zone returning id`,
+        [
         tenantId,
         technicianProfile.id,
       ])
@@ -151,6 +155,11 @@ async function seedTenantRows(tenantId: string, owner: TestUser, label: string, 
        values ($1, $2, $3, $4, 'fault_investigation', 'scheduled', $5) returning id`,
       [tenantId, ids.customer, ids.ticket, ids.technician ?? null, owner.id],
     )
+  ).id;
+  ids.ticketEvent = (await q(`select id from ticket_events where ticket_id = $1 order by created_at limit 1`, [ids.ticket])).id;
+  ids.jobEvent = (await q(`select id from job_events where job_id = $1 order by created_at limit 1`, [ids.job])).id;
+  ids.notificationPreference = (
+    await q(`insert into notification_preferences (tenant_id, profile_id, type, email) values ($1, $2, 'payment_failure', true) returning id`, [tenantId, owner.id])
   ).id;
   ids.notification = (
     await q(
@@ -247,6 +256,9 @@ export const TENANT_TABLES: { table: string; key: string; fixtureId: string }[] 
   { table: "support_tickets", key: "id", fixtureId: "ticket" },
   { table: "installation_jobs", key: "id", fixtureId: "job" },
   { table: "notifications", key: "id", fixtureId: "notification" },
+  { table: "ticket_events", key: "id", fixtureId: "ticketEvent" },
+  { table: "job_events", key: "id", fixtureId: "jobEvent" },
+  { table: "notification_preferences", key: "id", fixtureId: "notificationPreference" },
   { table: "platform_invoices", key: "id", fixtureId: "platformInvoice" },
   { table: "commercial_agreements", key: "id", fixtureId: "agreement" },
   { table: "platform_fee_records", key: "id", fixtureId: "feeRecord" },
