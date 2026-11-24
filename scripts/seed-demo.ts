@@ -135,6 +135,7 @@ async function main() {
         mpesa_account_number: "8068",
         upstream_provider: "Safaricom",
         upstream_support_phone: "0722000111", // Safaricom support number given by the client (24 Nov 2026); editable in Settings
+        access_control: "radius", // the pilot authenticates customers through RADIUS (user, 24 Nov 2026)
         portal_demo: true, // lets the demo WiFi page simulate an M-Pesa payment
       },
     }).eq("id", mwangaza),

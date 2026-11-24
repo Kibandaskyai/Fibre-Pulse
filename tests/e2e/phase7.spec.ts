@@ -15,14 +15,16 @@ test("the owner switches access control to RADIUS and back", async ({ page }) =>
   await signIn(page, "owner@mwangaza.test");
   await page.goto("/settings/organisation");
   await expect(page.getByText("Disconnect customers who are suspended or whose package has ended")).toBeVisible();
-  await page.getByLabel("Customers sign in with").selectOption("radius");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByText(/Saved: RADIUS/)).toBeVisible();
-  await page.reload();
+  // The demo ISP starts on RADIUS, like the pilot. Switch away and back.
   await expect(page.getByLabel("Customers sign in with")).toHaveValue("radius");
   await page.getByLabel("Customers sign in with").selectOption("router_secrets");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText(/Saved: router PPPoE secrets/)).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Customers sign in with")).toHaveValue("router_secrets");
+  await page.getByLabel("Customers sign in with").selectOption("radius");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText(/Saved: RADIUS/)).toBeVisible();
 });
 
 test("finance cannot change access control", async ({ page }) => {
