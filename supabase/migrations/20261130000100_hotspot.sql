@@ -94,7 +94,8 @@ create or replace function public.save_service_settings(
   p_upstream_provider text,
   p_upstream_phone text,
   p_upstream_check_target text,
-  p_hotspot_clock_start text default null
+  p_hotspot_clock_start text default null,
+  p_account_number text default null
 )
 returns void
 language plpgsql
@@ -117,6 +118,9 @@ begin
   if coalesce(trim(p_upstream_check_target), '') <> '' and private.try_inet(p_upstream_check_target) is null then
     raise exception 'The check address must be an IP address, for example 8.8.8.8.' using errcode = 'check_violation';
   end if;
+  if coalesce(trim(p_account_number), '') <> '' and trim(p_account_number) !~ '^[A-Za-z0-9-]{1,20}$' then
+    raise exception 'The account number can have up to 20 letters or digits.' using errcode = 'check_violation';
+  end if;
   if p_hotspot_clock_start is not null and p_hotspot_clock_start not in ('payment', 'first_login') then
     raise exception 'Choose when hotspot time starts.' using errcode = 'check_violation';
   end if;
@@ -125,6 +129,7 @@ begin
   set settings = settings || jsonb_build_object(
         'payment_methods', to_jsonb(v_methods),
         'mpesa_paybill', nullif(trim(p_paybill), ''),
+        'mpesa_account_number', nullif(trim(p_account_number), ''),
         'upstream_provider', coalesce(nullif(left(trim(p_upstream_provider), 60), ''), 'Safaricom'),
         'upstream_support_phone', nullif(trim(p_upstream_phone), ''),
         'upstream_check_target', coalesce(host(private.try_inet(p_upstream_check_target)), '8.8.8.8'),
@@ -770,6 +775,7 @@ begin
   return jsonb_build_object(
     'name', t.name,
     'paybill', t.settings ->> 'mpesa_paybill',
+    'account_number', t.settings ->> 'mpesa_account_number',
     'support_phone', t.contact_phone,
     'demo', coalesce((t.settings ->> 'portal_demo')::boolean, false),
     'clock_start', private.hotspot_clock_start(t.id),
@@ -824,7 +830,7 @@ begin
           v_plan.download_mbps, v_plan.upload_mbps, 'portal', 'awaiting_payment', v_phone, private.try_macaddr(p_mac), 'provider')
   returning id into v_id;
   return jsonb_build_object('voucher_id', v_id, 'amount', v_plan.price, 'phone', v_phone, 'plan', v_plan.name,
-                            'account_reference', left(regexp_replace(t.slug, '[^a-z0-9]', '', 'g'), 12));
+                            'account_reference', coalesce(t.settings ->> 'mpesa_account_number', left(regexp_replace(t.slug, '[^a-z0-9]', '', 'g'), 12)));
 end;
 $$;
 
@@ -1858,7 +1864,7 @@ revoke all on function private.expire_hotspot_vouchers() from public, anon, auth
 revoke all on function private.network_state(uuid) from public, anon, authenticated;
 revoke all on function private.radius_version(uuid, text, boolean) from public, anon, authenticated;
 
-revoke all on function public.save_service_settings(uuid, text[], text, text, text, text, text) from public, anon;
+revoke all on function public.save_service_settings(uuid, text[], text, text, text, text, text, text) from public, anon;
 revoke all on function public.save_hotspot_plan(uuid, uuid, text, integer, numeric, numeric, numeric, text, integer, text, integer) from public, anon;
 revoke all on function public.set_hotspot_plan_status(uuid, public.package_status) from public, anon;
 revoke all on function public.sell_hotspot_voucher(uuid, uuid, text, text) from public, anon;
@@ -1869,7 +1875,7 @@ revoke all on function public.compensate_hotspot_outage(uuid, integer, text) fro
 revoke all on function public.network_status(uuid) from public, anon;
 revoke all on function public.hotspot_summary(uuid) from public, anon;
 revoke all on function public.revenue_by_service(uuid, date, date, text) from public, anon;
-grant execute on function public.save_service_settings(uuid, text[], text, text, text, text, text) to authenticated;
+grant execute on function public.save_service_settings(uuid, text[], text, text, text, text, text, text) to authenticated;
 grant execute on function public.save_hotspot_plan(uuid, uuid, text, integer, numeric, numeric, numeric, text, integer, text, integer) to authenticated;
 grant execute on function public.set_hotspot_plan_status(uuid, public.package_status) to authenticated;
 grant execute on function public.sell_hotspot_voucher(uuid, uuid, text, text) to authenticated;

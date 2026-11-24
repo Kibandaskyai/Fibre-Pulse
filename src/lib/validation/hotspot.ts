@@ -62,6 +62,7 @@ export const compensateSchema = z.object({
 export const serviceSettingsSchema = z.object({
   methods: z.array(z.enum(["mpesa", "bank_transfer", "other"])).min(1, "Choose at least one payment method."),
   paybill: z.preprocess(blankToNull, z.string().trim().regex(/^\d{5,7}$/, "A paybill number has 5 to 7 digits.").nullable()),
+  accountNumber: z.preprocess((v) => (v === undefined ? null : blankToNull(v)), z.string().trim().regex(/^[A-Za-z0-9-]{1,20}$/, "Up to 20 letters or digits.").nullable()),
   upstreamProvider: z.string().trim().min(2, "Name your internet provider.").max(60),
   upstreamPhone: z.preprocess(blankToNull, z.string().trim().regex(/^[0-9+ ]{3,20}$/, "Digits only, for example 0722 000 100.").nullable()),
   upstreamCheckTarget: z.preprocess(

@@ -463,6 +463,19 @@ describe("Limited plans (data cap) and when time starts", () => {
     expect(v).toEqual({ status: "expired", end_reason: "Time ended before the code was used" });
   });
 
+  it("the paybill account number is shown on the WiFi page and used as the M-Pesa account", async () => {
+    await asUserCommit(owner, (c) => c.query(`select public.save_service_settings($1, array['mpesa'], '222111', 'Safaricom', '0722000111', null, 'payment', '8068')`, [tenant]));
+    await asUser(null, async (c) => {
+      await c.query("set local role anon");
+      const info = (await c.query(`select public.hotspot_portal($1) as i`, [slug])).rows[0].i;
+      expect(info).toMatchObject({ paybill: "222111", account_number: "8068" });
+    });
+    const buy = await asUserCommit(owner, (c) => c.query(`select public.hotspot_portal_buy($1, $2, '0799000888', null) as b`, [slug, plan24h]).then((r) => r.rows[0].b));
+    expect(buy.account_reference).toBe("8068");
+    const bad = await asUserCommit(owner, (c) => tryQuery(c, `select public.save_service_settings($1, array['mpesa'], '222111', 'Safaricom', null, null, null, 'bad number!')`, [tenant]));
+    expect(bad.ok).toBe(false);
+  });
+
   it("an ISP can choose time from first login instead; then an unused code never expires", async () => {
     await asUserCommit(owner, (c) => c.query(`select public.save_service_settings($1, array['mpesa'], null, 'Safaricom', null, null, 'first_login')`, [tenant]));
     const { voucher_id } = await freeCode(plan24h);

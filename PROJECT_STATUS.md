@@ -11,6 +11,7 @@ Legend: **Done and tested** · **Simulated** (works, uses labelled test data) ·
 - Platform fee: **2.75% of gross verified subscription collections** (pilot default, configurable per ISP agreement).
 - **No cash** payment method for the pilot. The pilot ISP accepts **M-Pesa paybill only** (client update, 24 Nov 2026); other ISPs can choose M-Pesa, bank transfer or other in Settings › Organisation.
 - Monthly packages: the first list (23 Nov 2026) was tentative and has been removed. The client's **PPPoE household plans** (24 Nov 2026), 30 days each: 10 Mbps Ksh 1,500 · 15 Mbps Ksh 2,000 · 20 Mbps Ksh 2,500 · 25 Mbps Ksh 3,000 · 40 Mbps Ksh 4,000 (upload assumed equal to download).
+- Pilot payment and support details (24 Nov 2026): M-Pesa paybill **222111**, account number **8068**, Safaricom support number **0722000111** (in the demo seed; editable in Settings › Organisation).
 - Hotspot answers (24 Nov 2026): **Limited** plans give a set amount of data for the period (e.g. 1 GB for 3 hours) and end when the data runs out or the time ends, whichever comes first; **Unlimited** plans have no data limit. A code's **time starts at payment**, so a paid code runs out even if unused. When a customer paid but got no code (e.g. the system was down), the owner issues one by hand for that M-Pesa transaction and sends it by SMS.
 - Monthly plans are **PPPoE plans for households** with their own router (Packages is now "PPPoE plans"). Plans can also be **Static IP** for future ISPs; the pilot has no static customers. Static customers are billed but not disconnected automatically yet (TODO: router address-list enforcement).
 - Client update of 24 Nov 2026: the pilot ISP buys internet from **Safaricom** and resells it along Thika Road to up to about **10,000 users**. Most are **hotspot** users who buy time per device (each phone or gadget pays separately); a minority pay monthly with their own routers. **No KRA or VAT.** Users are cut off automatically when time or the package ends. The app shows when the Safaricom internet is down and how many people are online; money is shown by day and by month. Hotspot plans (all 10 Mbps): 1 hour Ksh 10, 3 hours 15, 8 hours 30, 12 hours 40, 24 hours 50, 2 days 70, 3 days 100, 7 days 250, monthly 700.
@@ -202,7 +203,6 @@ Test totals after Phase 8: **413 unit, connector and database tests and 68 brows
 
 - How much data does each Limited plan give (1 hour, 3 hours, 8 hours, 12 hours, 24 hours)? Until set, a Limited plan works like Unlimited and the plans page says so.
 - PPPoE plans: is upload the same speed as download?
-- The paybill number and the Safaricom support number for the outage banner.
 - Not built until asked: themes for the login page, burst speeds, agent commissions, Happy Hour, pay-later, expenses.
 
 ## Not built yet

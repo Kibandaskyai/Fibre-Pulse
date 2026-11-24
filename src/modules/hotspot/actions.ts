@@ -110,6 +110,7 @@ export async function saveServiceSettingsAction(_prev: ActionResult | null, form
     const parsed = serviceSettingsSchema.safeParse({
       methods: formData.getAll("methods"),
       paybill: formData.get("paybill") ?? "",
+      accountNumber: formData.get("accountNumber") ?? "",
       upstreamProvider: formData.get("upstreamProvider") ?? "",
       upstreamPhone: formData.get("upstreamPhone") ?? "",
       upstreamCheckTarget: formData.get("upstreamCheckTarget") ?? "",

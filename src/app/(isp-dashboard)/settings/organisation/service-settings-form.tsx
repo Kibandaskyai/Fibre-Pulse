@@ -33,6 +33,9 @@ export function ServiceSettingsForm({ values }: { values: ServiceSettings }) {
         <Field id="svc-paybill" label="M-Pesa paybill number" errors={fe?.paybill}>
           <Input id="svc-paybill" name="paybill" inputMode="numeric" defaultValue={values.paybill ?? ""} placeholder="123456" />
         </Field>
+        <Field id="svc-account" label="Paybill account number" errors={fe?.accountNumber}>
+          <Input id="svc-account" name="accountNumber" defaultValue={values.accountNumber ?? ""} placeholder="What buyers type as the account" />
+        </Field>
         <Field id="svc-provider" label="Your internet provider" errors={fe?.upstreamProvider}>
           <Input id="svc-provider" name="upstreamProvider" defaultValue={values.upstreamProvider} />
         </Field>

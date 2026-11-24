@@ -131,9 +131,10 @@ async function main() {
       settings: {
         ...(t.settings ?? {}),
         payment_methods: ["mpesa"],
-        mpesa_paybill: "000000", // fictional placeholder until the client gives theirs
+        mpesa_paybill: "222111", // the pilot client's paybill (24 Nov 2026)
+        mpesa_account_number: "8068",
         upstream_provider: "Safaricom",
-        upstream_support_phone: "0722 000 000", // fictional placeholder
+        upstream_support_phone: "0722000111", // Safaricom support number given by the client (24 Nov 2026); editable in Settings
         portal_demo: true, // lets the demo WiFi page simulate an M-Pesa payment
       },
     }).eq("id", mwangaza),

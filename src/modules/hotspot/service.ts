@@ -221,6 +221,8 @@ export async function revenueByService(db: SupabaseClient, tenantId: string, fro
 export type ServiceSettings = {
   methods: ("mpesa" | "bank_transfer" | "other")[];
   paybill: string | null;
+  /** The account number buyers enter when paying the paybill. */
+  accountNumber: string | null;
   upstreamProvider: string;
   upstreamPhone: string | null;
   upstreamCheckTarget: string;
@@ -234,6 +236,7 @@ export function readServiceSettings(settings: Record<string, unknown> | null | u
   return {
     methods: methods as ServiceSettings["methods"],
     paybill: typeof s.mpesa_paybill === "string" ? s.mpesa_paybill : null,
+    accountNumber: typeof s.mpesa_account_number === "string" ? s.mpesa_account_number : null,
     upstreamProvider: typeof s.upstream_provider === "string" ? s.upstream_provider : "Safaricom",
     upstreamPhone: typeof s.upstream_support_phone === "string" ? s.upstream_support_phone : null,
     upstreamCheckTarget: typeof s.upstream_check_target === "string" ? s.upstream_check_target : "8.8.8.8",
@@ -250,6 +253,7 @@ export async function saveServiceSettings(db: SupabaseClient, tenantId: string, 
     p_upstream_phone: s.upstreamPhone,
     p_upstream_check_target: s.upstreamCheckTarget,
     p_hotspot_clock_start: s.hotspotClockStart,
+    p_account_number: s.accountNumber,
   });
   return error ? { ok: false, message: friendlyDbError(error) } : { ok: true, data: null };
 }

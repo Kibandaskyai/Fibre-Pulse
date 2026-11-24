@@ -11,6 +11,7 @@ import { buyAction, simulatePaymentAction, statusAction, type BuyResult, type St
 export type PortalInfo = {
   name: string;
   paybill: string | null;
+  account_number?: string | null;
   support_phone: string | null;
   demo: boolean;
   network_ok: boolean;
@@ -158,7 +159,7 @@ export function BuyWifi({ slug, info, mac, loginUrl, dst, error }: { slug: strin
       ) : null}
 
       <footer className="text-center text-xs text-muted-foreground">
-        {info.paybill ? <p>Paybill {info.paybill}</p> : null}
+        {info.paybill ? <p>Paybill {info.paybill}{info.account_number ? `, account ${info.account_number}` : ""}</p> : null}
         {info.support_phone ? <p>Help: {info.support_phone.replace(/^\+254/, "0")}</p> : null}
       </footer>
     </div>

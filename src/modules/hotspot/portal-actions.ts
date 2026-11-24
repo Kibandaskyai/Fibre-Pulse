@@ -31,7 +31,7 @@ export async function buyAction(slug: string, form: { planId: string; phone: str
     return { ok: false, message: issue?.message ?? "Check the form.", field: issue?.path[0] === "phone" ? "phone" : "planId" };
   }
   const db = publicDb();
-  const info = (await db.rpc("hotspot_portal", { p_slug: slug })).data as { demo?: boolean; paybill?: string | null } | null;
+  const info = (await db.rpc("hotspot_portal", { p_slug: slug })).data as { demo?: boolean; paybill?: string | null; account_number?: string | null } | null;
   const demo = Boolean(info?.demo);
   const paybill = info?.paybill ?? null;
   const { data, error } = await db.rpc("hotspot_portal_buy", { p_slug: slug, p_plan: parsed.data.planId, p_phone: parsed.data.phone, p_mac: parsed.data.mac });
@@ -57,7 +57,7 @@ export async function buyAction(slug: string, form: { planId: string; phone: str
     ...base,
     prompt: "paybill",
     message: paybill
-      ? `Pay Ksh ${Number(b.amount)} to paybill ${paybill} from ${b.phone.replace(/^\+254/, "0")}. Your code arrives by SMS.`
+      ? `Pay Ksh ${Number(b.amount)} to paybill ${paybill}${info?.account_number ? `, account ${info.account_number},` : ""} from ${b.phone.replace(/^\+254/, "0")}. Your code arrives by SMS.`
       : "Automatic M-Pesa prompts are not set up yet. Ask the WiFi owner for a code.",
   };
 }
