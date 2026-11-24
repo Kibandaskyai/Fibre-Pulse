@@ -1,5 +1,5 @@
 "use client";
-import { Brand } from "@/components/layout/brand";
+import { BrandLogo } from "@/components/layout/brand";
 import { Input } from "@/components/ui/input";
 import { Field, FormMessage, SubmitButton, useFormAction } from "@/components/shared/form-bits";
 import { resetPasswordAction } from "@/modules/auth/actions";
@@ -10,7 +10,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-8"><Brand /></div>
+        <div className="mb-8"><BrandLogo className="w-56" /></div>
         <h1 className="text-2xl font-semibold tracking-tight">Choose a new password</h1>
         <form {...formProps} className="mt-6 grid gap-4" noValidate>
           <Field id="password" label="New password" errors={errors?.password} hint="At least 10 characters, with upper and lower case letters and a number.">

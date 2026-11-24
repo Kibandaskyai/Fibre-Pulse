@@ -4,7 +4,7 @@ import { formatKsh } from "@/lib/format";
 import type { ServiceRow } from "@/modules/hotspot/service";
 
 const dayLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-KE", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
-const monthLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-KE", { month: "long", year: "numeric", timeZone: "UTC" });
+const monthLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-KE", { month: "short", year: "numeric", timeZone: "UTC" });
 
 /**
  * Daily and monthly money, split hotspot / monthly customers. Verified money
@@ -30,16 +30,16 @@ export function ServiceMoneyTable({ rows, grain, title, description }: { rows: S
               <TableRow>
                 <TableHead>{grain === "day" ? "Day" : "Month"}</TableHead>
                 <TableHead className="text-right">Hotspot</TableHead>
-                <TableHead className="hidden sm:table-cell text-right">Codes sold</TableHead>
+                <TableHead className="hidden sm:table-cell text-right">Codes</TableHead>
                 <TableHead className="text-right">Monthly</TableHead>
                 {showUnlinked ? <TableHead className="hidden md:table-cell text-right">Not linked</TableHead> : null}
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead className="hidden lg:table-cell text-right">Awaiting check</TableHead>
+                <TableHead className="hidden lg:table-cell text-right">Not yet checked</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               <TableRow className="font-semibold">
-                <TableCell>{grain === "day" ? "Month to date" : "12 months"}</TableCell>
+                <TableCell className="whitespace-nowrap">{grain === "day" ? "Month to date" : "12 months"}</TableCell>
                 <TableCell className="tabular text-right">{formatKsh(total.hotspot)}</TableCell>
                 <TableCell className="hidden sm:table-cell tabular text-right">{total.sales.toLocaleString("en-KE")}</TableCell>
                 <TableCell className="tabular text-right">{formatKsh(total.monthly)}</TableCell>
@@ -49,7 +49,7 @@ export function ServiceMoneyTable({ rows, grain, title, description }: { rows: S
               </TableRow>
               {ordered.map((r) => (
                 <TableRow key={r.bucket}>
-                  <TableCell>{grain === "day" ? dayLabel(r.bucket) : monthLabel(r.bucket)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{grain === "day" ? dayLabel(r.bucket) : monthLabel(r.bucket)}</TableCell>
                   <TableCell className="tabular text-right">{formatKsh(r.hotspot)}</TableCell>
                   <TableCell className="hidden sm:table-cell tabular text-right">{r.hotspot_sales.toLocaleString("en-KE")}</TableCell>
                   <TableCell className="tabular text-right">{formatKsh(r.monthly)}</TableCell>

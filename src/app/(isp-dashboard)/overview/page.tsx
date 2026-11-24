@@ -120,8 +120,9 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         </Section>
       ) : null}
 
+      {/* Side by side only on wide screens: on a laptop the columns do not fit in half the width. */}
       {daily?.ok && byMonth?.ok ? (
-        <div className="mb-6 grid gap-6 xl:grid-cols-2">
+        <div className="mb-6 grid gap-6 2xl:grid-cols-2">
           <ServiceMoneyTable rows={daily.data} grain="day" title="Money per day, this month" description="Verified M-Pesa money, hotspot and monthly customers, newest day first." />
           <ServiceMoneyTable rows={byMonth.data} grain="month" title="Money per month" description="Verified M-Pesa money, last 12 months." />
         </div>

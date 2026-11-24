@@ -1,10 +1,10 @@
-import { Brand } from "@/components/layout/brand";
+import { BrandLogo } from "@/components/layout/brand";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
       <div className="relative hidden overflow-hidden border-r bg-sidebar lg:flex lg:flex-col lg:justify-between lg:p-10">
-        <Brand subtitle="ISP operations and intelligence" />
+        <BrandLogo className="w-72" />
         <div>
           <p className="max-w-md text-3xl font-semibold leading-tight tracking-tight">
             See your network.
@@ -23,7 +23,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="flex items-center justify-center px-4 py-10 sm:px-8">
         <div className="w-full max-w-sm">
           <div className="mb-8 lg:hidden">
-            <Brand />
+            <BrandLogo className="w-56" />
           </div>
           {children}
         </div>
