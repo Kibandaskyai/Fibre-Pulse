@@ -37,11 +37,12 @@ async function openTenant(page: Page, name: string) {
 }
 
 test.describe.serial("platform fees, invoices and ISP billing", () => {
-  test("finance records and verifies a bank payment made last month", async ({ page }) => {
+  test("finance records and verifies an M-Pesa payment made last month", async ({ page }) => {
     await signIn(page, "finance@mwangaza.test");
     await page.goto("/payments/new");
-    await page.locator("#pay-method").selectOption("bank_transfer");
-    await page.getByLabel("M-Pesa receipt or bank reference").fill(reference);
+    // Mwangaza accepts M-Pesa only (client update, 24 Nov 2026).
+    await expect(page.locator("#pay-method")).toHaveValue("M-Pesa");
+    await page.getByLabel("M-Pesa receipt", { exact: true }).fill(reference);
     await page.getByLabel("Amount (Ksh)").fill("4000");
     await page.locator("#pay-time").fill(lastMonthMidday());
     await page.getByRole("button", { name: "Record payment" }).click();

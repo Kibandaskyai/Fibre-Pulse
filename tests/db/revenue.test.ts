@@ -95,7 +95,7 @@ beforeAll(async () => {
     return r.rows[0].id as string;
   });
   await asUserCommit(otherOwner, (c) => c.query(`select public.register_tenant('Other ISP', $1)`, [`rev-other-${runId}`]));
-  await q(`update tenants set status = 'active' where id = $1`, [tenant]);
+  await q(`update tenants set status = 'active', settings = settings || '{"payment_methods":["mpesa","bank_transfer","other"]}' where id = $1`, [tenant]);
   for (const [u, role] of [
     [finance, "finance"],
     [support, "support_agent"],

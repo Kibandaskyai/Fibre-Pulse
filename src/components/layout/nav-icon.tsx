@@ -1,6 +1,6 @@
 import {
   AlertTriangle, BarChart3, Building2, CreditCard, FileSignature, FileText, Gauge, LayoutDashboard, LifeBuoy,
-  Map, Network, Package, Receipt, RefreshCcw, ScrollText, Settings, ShieldCheck, Users, Wrench,
+  Map, Network, Package, Receipt, RefreshCcw, ScrollText, Settings, ShieldCheck, Users, Wifi, Wrench,
 } from "lucide-react";
 import type { NavItem } from "./nav-config";
 
@@ -23,6 +23,7 @@ const ICONS = {
   invoices: Receipt,
   shield: ShieldCheck,
   audit: ScrollText,
+  hotspot: Wifi,
 } satisfies Record<NavItem["icon"], unknown>;
 
 export function NavIcon({ name, className }: { name: NavItem["icon"]; className?: string }) {

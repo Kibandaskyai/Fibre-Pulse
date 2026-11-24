@@ -149,7 +149,6 @@ export async function issueInvoiceAction(_prev: ActionResult | null, formData: F
       .object({
         tenantId: uuid,
         dueDays: z.coerce.number().int().min(1, "Payment terms must be 1 to 90 days.").max(90, "Payment terms must be 1 to 90 days."),
-        vatPercent: z.coerce.number().min(0).max(30, "Enter a VAT rate between 0 and 30%."),
         notes: z.string().trim().max(1000).optional(),
       })
       .safeParse(Object.fromEntries(formData));
@@ -157,7 +156,7 @@ export async function issueInvoiceAction(_prev: ActionResult | null, formData: F
     const { error } = await (await createClient()).rpc("admin_issue_platform_invoice", {
       p_tenant: parsed.data.tenantId,
       p_due_days: parsed.data.dueDays,
-      p_tax_rate: Math.round(parsed.data.vatPercent * 100) / 10000,
+      p_tax_rate: 0, // No VAT or KRA on invoices (pilot ISP is not VAT registered).
       p_notes: parsed.data.notes ?? null,
     });
     if (error) return { ok: false, message: friendlyDbError(error, "Could not issue the invoice.") };

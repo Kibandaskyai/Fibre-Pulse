@@ -47,7 +47,10 @@ export function InvoiceDocument({ invoice: inv, lines }: { invoice: PlatformInvo
         </div>
         <dl className="ml-auto grid w-full max-w-xs gap-1 text-sm">
           <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd className="tabular">{formatKsh(inv.subtotal)}</dd></div>
-          <div className="flex justify-between"><dt className="text-muted-foreground">VAT ({ratePct(inv.tax_rate)})</dt><dd className="tabular">{formatKsh(inv.tax_amount)}</dd></div>
+          {/* No VAT or KRA: the pilot ISP is not VAT registered. Older invoices that carried tax still show it. */}
+          {inv.tax_amount > 0 ? (
+            <div className="flex justify-between"><dt className="text-muted-foreground">Tax ({ratePct(inv.tax_rate)})</dt><dd className="tabular">{formatKsh(inv.tax_amount)}</dd></div>
+          ) : null}
           <div className="flex justify-between border-t pt-1 font-semibold"><dt>Total</dt><dd className="tabular" data-testid="invoice-total">{formatKsh(inv.total)}</dd></div>
         </dl>
         <div className="grid gap-1 text-xs text-muted-foreground">
@@ -55,7 +58,7 @@ export function InvoiceDocument({ invoice: inv, lines }: { invoice: PlatformInvo
           {inv.status === "paid" ? <p>Paid on {formatDate(inv.paid_at)}, reference {inv.payment_reference}.</p> : null}
           {inv.status === "void" ? <p>Void: {inv.void_reason}</p> : null}
           <p>Fees are a percentage of verified internet subscription collections. Reversed, refunded, unverified and simulated payments are never charged.</p>
-          {/* TODO: SOFTWARE ENGINEER - add FibrePulse's legal name, KRA PIN and payment details once registered, and a PDF download. */}
+          {/* TODO: SOFTWARE ENGINEER - add FibrePulse's legal name and payment details once registered, and a PDF download. */}
         </div>
       </CardContent>
     </Card>

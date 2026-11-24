@@ -10,6 +10,8 @@ export type AgentConfig = {
   requestTimeoutMs: number;
   allowWrites: boolean;
   simulate: boolean;
+  /** Simulator only: report that the routers cannot reach the internet. */
+  simulateUpstreamDown: boolean;
   localCredentials: LocalCredentials;
   maxBufferedBatches: number;
   /** Local RADIUS policy endpoint for FreeRADIUS rlm_rest (off when port is 0). */
@@ -65,6 +67,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     requestTimeoutMs: seconds(env.REQUEST_TIMEOUT_SECONDS, 10, 2, 60),
     allowWrites: bool(env.ALLOW_ROUTER_WRITES),
     simulate: bool(env.SIMULATE),
+    simulateUpstreamDown: bool(env.SIMULATE_UPSTREAM_DOWN),
     localCredentials,
     maxBufferedBatches: 120,
   };

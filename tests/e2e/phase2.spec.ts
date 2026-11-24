@@ -76,7 +76,7 @@ test.describe.serial("owner sells a package and collects a payment", () => {
     await signIn(page, "finance@mwangaza.test");
     await page.goto(customerUrl);
     await page.getByRole("link", { name: "Record payment" }).click();
-    await page.getByLabel("M-Pesa receipt or bank reference").fill(reference);
+    await page.getByLabel(/^M-Pesa receipt/).fill(reference);
     await page.getByLabel("Amount (Ksh)").fill("3000");
     await page.getByRole("button", { name: "Record payment" }).click();
     await page.waitForURL(/\/payments\/[0-9a-f-]{36}\?recorded=1/);
@@ -93,7 +93,7 @@ test.describe.serial("owner sells a package and collects a payment", () => {
   test("the same reference cannot be recorded twice", async ({ page }) => {
     await signIn(page, "finance@mwangaza.test");
     await page.goto("/payments/new");
-    await page.getByLabel("M-Pesa receipt or bank reference").fill(reference);
+    await page.getByLabel(/^M-Pesa receipt/).fill(reference);
     await page.getByLabel("Amount (Ksh)").fill("3000");
     await page.getByRole("button", { name: "Record payment" }).click();
     await expect(page.getByText(/has already been recorded/)).toBeVisible();

@@ -65,7 +65,7 @@ beforeAll(async () => {
   otherOwner = await createUser("rc-other");
   tenant = await asUserCommit(owner, (c) => c.query(`select public.register_tenant('Reconcile ISP', $1) as id`, [`rc-${runId}`]).then((r) => r.rows[0].id as string));
   otherTenant = await asUserCommit(otherOwner, (c) => c.query(`select public.register_tenant('Other ISP', $1) as id`, [`rco-${runId}`]).then((r) => r.rows[0].id as string));
-  await q(`update tenants set status = 'active' where id = any($1)`, [[tenant, otherTenant]]);
+  await q(`update tenants set status = 'active', settings = settings || '{"payment_methods":["mpesa","bank_transfer","other"]}' where id = any($1)`, [[tenant, otherTenant]]);
   await q(`insert into tenant_members (tenant_id, profile_id, role) values ($1, $2, 'finance'), ($1, $3, 'support_agent')`, [tenant, finance.id, support.id]);
   [{ id: customer }] = await q<{ id: string }>(
     `insert into customers (tenant_id, full_name, phone, status) values ($1, 'Grace Reconcile', '+254711000201', 'active') returning id`,

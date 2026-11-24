@@ -11,8 +11,15 @@
 
 export type StkPushRequest = {
   tenantId: string;
-  customerId: string;
+  /** Monthly customers: the customer paying. Null for a hotspot purchase. */
+  customerId: string | null;
   invoiceId: string | null;
+  /**
+   * Hotspot purchase (pilot client, 24 Nov 2026): the code waiting for
+   * payment. Store Safaricom's CheckoutRequestID on it with
+   * set_hotspot_checkout(); the callback then calls confirm_hotspot_payment().
+   */
+  hotspotVoucherId?: string | null;
   /** E.164 Kenyan number, e.g. +254712345678. Daraja wants 2547XXXXXXXX. */
   phone: string;
   /** Whole shillings. Daraja does not accept cents. */
@@ -80,8 +87,17 @@ export class ManualPaymentProvider implements PaymentProvider {
  *    verification_status 'verified' (provider-confirmed), insert a reconciliation
  *    record and call private.auto_allocate_customer. Idempotent on the receipt
  *    number (payments_reference_unique already rejects duplicates).
- * 4. C2B paybill (optional): register validation/confirmation URLs per tenant;
- *    unmatched deposits arrive with customer_id null for assign_payment_customer.
+ * 4. C2B paybill: register validation/confirmation URLs per tenant. For the
+ *    pilot (mostly hotspot buyers paying the paybill directly) the confirmation
+ *    calls record_paybill_hotspot_payment(), which picks the plan by amount and
+ *    texts the code; unmatched deposits stay with customer_id null for
+ *    assign_payment_customer.
+ * 4b. Hotspot STK push (the WiFi buying page): initiateStkPush with
+ *    hotspotVoucherId set; store the CheckoutRequestID with
+ *    set_hotspot_checkout(voucher, id); in the callback look the voucher up by
+ *    CheckoutRequestID and call confirm_hotspot_payment(voucher, success,
+ *    MpesaReceiptNumber, Amount, PhoneNumber, TransactionDate, raw). All three
+ *    functions are granted to the service role only and are idempotent.
  * 5. Per-tenant shortcode, passkey and consumer secrets are stored encrypted, never
  *    in the browser, never in logs.
  */

@@ -12,8 +12,37 @@ export type Reading = {
   system?: { identity: string | null; model: string | null; serial_number: string | null; version: string | null; uptime_seconds: number | null; cpu_load_pct: number | null; memory_used_pct: number | null };
   interfaces?: { name: string; type: string | null; mac_address: string | null; running: boolean | null; disabled: boolean | null; rx_bps: number | null; tx_bps: number | null }[];
   sessions?: { type: "pppoe" | "hotspot"; username: string; address: string | null; caller_id: string | null; uptime_seconds: number | null; bytes_in?: number | null; bytes_out?: number | null }[];
+  /** Can the router reach the internet (the provider's link)? */
+  upstream?: { target: string; reachable: boolean; loss_pct: number | null; avg_ms: number | null };
   warnings?: string[];
 };
+
+/** RouterOS ping times: "12ms", "12ms345us", "1s20ms" or plain milliseconds. */
+export function parseRtt(v: string | undefined): number | null {
+  if (!v) return null;
+  if (/^\d+(\.\d+)?$/.test(v)) return Number(v);
+  let ms = 0;
+  let matched = false;
+  for (const [, n, unit] of v.matchAll(/(\d+(?:\.\d+)?)(s|ms|us)/g)) {
+    matched = true;
+    ms += Number(n) * (unit === "s" ? 1000 : unit === "ms" ? 1 : 0.001);
+  }
+  return matched ? Math.round(ms * 10) / 10 : null;
+}
+
+/**
+ * Ask the router to ping an internet address 3 times (RouterOS 7 REST
+ * POST /ping). Two failed checks in a row mean the provider's link is down.
+ */
+export async function checkUpstream(client: RouterOsClient, target: string): Promise<NonNullable<Reading["upstream"]>> {
+  const out = await client.request<Row[] | Row | null>("POST", "/ping", { address: target, count: "3", interval: "0.2" });
+  const list = Array.isArray(out) ? out : out ? [out] : [];
+  const last = list[list.length - 1] ?? {};
+  const received = num(last.received) ?? list.filter((r) => r.time || r["avg-rtt"]).length;
+  const sent = num(last.sent) ?? list.length;
+  const loss = num(last["packet-loss"]) ?? (sent ? Math.round(((sent - received) / sent) * 100) : null);
+  return { target, reachable: received > 0, loss_pct: loss, avg_ms: parseRtt(last["avg-rtt"] ?? last.time) };
+}
 
 const rows = (v: Row[] | Row | null): Row[] => (Array.isArray(v) ? v : v ? [v] : []);
 
@@ -23,7 +52,13 @@ export function rate(prev: number | undefined, curr: number | null, seconds: num
   return Math.round(((curr - prev) * 8) / seconds);
 }
 
-export async function pollRouter(routerId: string, client: RouterOsClient, counters: Counters, now = () => Date.now()): Promise<Reading> {
+export async function pollRouter(
+  routerId: string,
+  client: RouterOsClient,
+  counters: Counters,
+  now = () => Date.now(),
+  upstreamTarget: string | null = null,
+): Promise<Reading> {
   const at = now();
   const collected_at = new Date(at).toISOString();
   const warnings: string[] = [];
@@ -109,6 +144,14 @@ export async function pollRouter(routerId: string, client: RouterOsClient, count
           bytes_out: num(s["bytes-out"]),
         })),
       ];
+    }
+  }
+  if (upstreamTarget) {
+    try {
+      reading.upstream = await checkUpstream(client, upstreamTarget);
+    } catch (e) {
+      // Could not run the check (for example an old RouterOS): not an outage.
+      warnings.push(`/ping: ${(e as Error).message}`);
     }
   }
   if (warnings.length) reading.warnings = warnings;

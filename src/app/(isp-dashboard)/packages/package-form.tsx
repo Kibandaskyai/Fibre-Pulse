@@ -26,7 +26,7 @@ export function PackageForm({ pkg }: { pkg?: ServicePackage }) {
         </Field>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="pkg-price" label="Price (Ksh)" errors={e?.price} hint="Gross price the customer pays, VAT included if you charge it.">
+        <Field id="pkg-price" label="Price (Ksh)" errors={e?.price} hint="The price the customer pays by M-Pesa.">
           <Input id="pkg-price" name="price" inputMode="decimal" required defaultValue={pkg?.price ?? ""} />
         </Field>
         <Field id="pkg-period" label="Billing period" errors={e?.billingPeriod}>

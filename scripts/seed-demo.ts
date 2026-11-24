@@ -12,6 +12,9 @@
  *   - "Pwani Connect" (pending) to demonstrate tenant isolation
  *   - fictional packages and customers, and SIMULATED routers
  *   - (Phase 6) Mwangaza's signed 2.75% agreement from October 2026
+ *   - (Phase 8) the pilot's 9 hotspot plans, M-Pesa-only settings and a few
+ *     SIMULATED hotspot codes (DEMO00…DEMO11). The demo WiFi page is
+ *     /wifi/mwangaza
  *   - (Phase 4) a demo connector for the simulated routers. Its token is
  *     written to connector/mikrotik-agent/.env (git-ignored) so
  *     `npm run connector:demo` reports SIMULATED readings to the local app.
@@ -111,6 +114,86 @@ async function main() {
   ];
   for (const p of packages) {
     await db.from("service_packages").upsert({ tenant_id: mwangaza, description: "Pilot ISP suggested package", ...p }, { onConflict: "tenant_id,name" });
+  }
+
+  // Phase 8 (client update 24 Nov 2026): the pilot ISP mostly sells hotspot
+  // time per device, all 10 Mbps, paid by M-Pesa paybill only. Prices are the
+  // client's current plans. Limited/Unlimited labels are copied as shown and
+  // carry no data cap until the client explains them.
+  const t = (await must(db.from("tenants").select("settings").eq("id", mwangaza).single())) as { settings: Record<string, unknown> | null };
+  await must(
+    db.from("tenants").update({
+      settings: {
+        ...(t.settings ?? {}),
+        payment_methods: ["mpesa"],
+        mpesa_paybill: "000000", // fictional placeholder until the client gives theirs
+        upstream_provider: "Safaricom",
+        upstream_support_phone: "0722 000 000", // fictional placeholder
+        portal_demo: true, // lets the demo WiFi page simulate an M-Pesa payment
+      },
+    }).eq("id", mwangaza),
+  );
+  const hotspotPlans = [
+    { name: "1 Hour", duration_minutes: 60, price: 10, usage_type: "limited" },
+    { name: "3 Hours", duration_minutes: 180, price: 15, usage_type: "limited" },
+    { name: "8 Hours", duration_minutes: 480, price: 30, usage_type: "limited" },
+    { name: "12 Hours", duration_minutes: 720, price: 40, usage_type: "limited" },
+    { name: "24 Hours", duration_minutes: 1440, price: 50, usage_type: "limited" },
+    { name: "2 Days", duration_minutes: 2880, price: 70, usage_type: "unlimited" },
+    { name: "3 Days", duration_minutes: 4320, price: 100, usage_type: "unlimited" },
+    { name: "7 Days", duration_minutes: 10080, price: 250, usage_type: "unlimited" },
+    { name: "Monthly", duration_minutes: 43200, price: 700, usage_type: "unlimited" },
+  ];
+  for (const [i, hp] of hotspotPlans.entries()) {
+    await db.from("hotspot_plans").upsert({ tenant_id: mwangaza, download_mbps: 10, upload_mbps: 10, sort_order: i, ...hp }, { onConflict: "tenant_id,name" });
+  }
+  const { count: codeCount } = await db.from("hotspot_vouchers").select("id", { count: "exact", head: true }).eq("tenant_id", mwangaza);
+  if (!codeCount) {
+    // SIMULATED codes and devices so the hotspot screens have something to
+    // show. Their payments are simulated and never count as revenue.
+    const { data: plans } = await db.from("hotspot_plans").select("id, name, price, duration_minutes").eq("tenant_id", mwangaza);
+    const byPlan = new Map((plans ?? []).map((p) => [p.name as string, p]));
+    const now = Date.now();
+    const demo: { plan: string; state: "unused" | "active" | "expired"; minutesAgo: number }[] = [
+      { plan: "24 Hours", state: "active", minutesAgo: 90 }, { plan: "24 Hours", state: "active", minutesAgo: 600 },
+      { plan: "1 Hour", state: "active", minutesAgo: 20 }, { plan: "3 Hours", state: "active", minutesAgo: 45 },
+      { plan: "2 Days", state: "active", minutesAgo: 1500 }, { plan: "7 Days", state: "active", minutesAgo: 4000 },
+      { plan: "Monthly", state: "active", minutesAgo: 20000 }, { plan: "8 Hours", state: "active", minutesAgo: 400 },
+      { plan: "24 Hours", state: "unused", minutesAgo: 5 }, { plan: "12 Hours", state: "unused", minutesAgo: 30 },
+      { plan: "1 Hour", state: "expired", minutesAgo: 180 }, { plan: "3 Hours", state: "expired", minutesAgo: 300 },
+    ];
+    for (const [i, d] of demo.entries()) {
+      const plan = byPlan.get(d.plan)!;
+      const phone = `+25470010${String(10000 + i).slice(1)}`;
+      const boughtAt = new Date(now - d.minutesAgo * 60_000 - 60_000).toISOString();
+      const mac = `02:5d:00:00:00:${(16 + i).toString(16)}`;
+      const pay = (await must(
+        db.from("payments").insert({
+          tenant_id: mwangaza, customer_id: null, method: "mpesa", provider_reference: `SIMHS${String(i).padStart(5, "0")}`, amount: plan.price,
+          payer_phone: phone, transaction_at: boughtAt, status: "successful", verification_status: "unverified", data_source: "simulated",
+          description: "Simulated hotspot M-Pesa payment for the demo. Never counts as revenue.",
+        }).select("id").single(),
+      )) as { id: string };
+      let deviceId: string | null = null;
+      if (d.state !== "unused") {
+        const dev = (await must(
+          db.from("hotspot_devices").upsert({ tenant_id: mwangaza, mac_address: mac, last_phone: phone, purchases: 1, total_spent: plan.price, data_source: "simulated" }, { onConflict: "tenant_id,mac_address" }).select("id").single(),
+        )) as { id: string };
+        deviceId = dev.id;
+      }
+      const activatedAt = d.state === "unused" ? null : new Date(now - d.minutesAgo * 60_000);
+      const expiresAt = activatedAt ? new Date(activatedAt.getTime() + Number(plan.duration_minutes) * 60_000) : null;
+      await must(
+        db.from("hotspot_vouchers").insert({
+          tenant_id: mwangaza, code: `DEMO${String(i).padStart(2, "0")}`, plan_id: plan.id, plan_name: plan.name, price: plan.price,
+          duration_minutes: plan.duration_minutes, download_mbps: 10, upload_mbps: 10, source: "portal", status: d.state, phone,
+          device_id: deviceId, mac_address: deviceId ? mac : null, payment_id: pay.id, data_source: "simulated",
+          activated_at: activatedAt?.toISOString() ?? null, expires_at: expiresAt?.toISOString() ?? null,
+          ended_at: d.state === "expired" ? expiresAt?.toISOString() : null, end_reason: d.state === "expired" ? "Time used up" : null,
+          created_at: boughtAt,
+        }),
+      );
+    }
   }
 
   const { count } = await db.from("customers").select("id", { count: "exact", head: true }).eq("tenant_id", mwangaza);

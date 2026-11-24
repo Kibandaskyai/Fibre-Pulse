@@ -21,9 +21,25 @@ export type RouterConfig = {
   credential_error: string | null;
 };
 
-export type Command = { id: string; router_id: string; type: "disconnect_pppoe" | "reconnect_pppoe"; pppoe_username: string };
+export type CommandType = "disconnect_pppoe" | "reconnect_pppoe" | "disconnect_hotspot";
 
-export type RadiusEntry = { username: string; allowed: boolean; download_mbps: number | null; upload_mbps: number | null; expires_at: string | null };
+/** pppoe_username holds the hotspot access code for disconnect_hotspot. */
+export type Command = { id: string; router_id: string; type: CommandType; pppoe_username: string };
+
+export type RadiusEntry = {
+  username: string;
+  /** "pppoe" (monthly customers, password kept by RADIUS) or "hotspot" (an access code). Missing means pppoe. */
+  kind?: "pppoe" | "hotspot";
+  allowed: boolean;
+  download_mbps: number | null;
+  upload_mbps: number | null;
+  /** When access ends. Null for a hotspot code that has not been used yet. */
+  expires_at: string | null;
+  /** Hotspot: time bought, in seconds; the clock starts at first login. */
+  duration_seconds?: number | null;
+  /** Hotspot: the one device (MAC) the code works on, once known. */
+  mac?: string | null;
+};
 
 export type SyncResponse = {
   agent_id: string;
@@ -35,6 +51,10 @@ export type SyncResponse = {
   radius_access?: RadiusEntry[] | null;
   routers: RouterConfig[];
   commands: Command[];
+  /** Changes whenever radius_access would change. Sent back on the next sync. */
+  radius_version?: string | null;
+  /** IP address each router pings to check the internet from the provider. */
+  upstream_check_target?: string | null;
 };
 
 export class CloudClient {
@@ -71,8 +91,8 @@ export class CloudClient {
     }
   }
 
-  sync(version: string) {
-    return this.post<SyncResponse>("/api/connector/v1/sync", { version });
+  sync(version: string, radiusVersion: string | null = null) {
+    return this.post<SyncResponse>("/api/connector/v1/sync", { version, radius_version: radiusVersion });
   }
   ingest(payload: unknown) {
     return this.post<{ accepted: number; rejected: { router_id: string; reason: string }[] }>("/api/connector/v1/ingest", payload);
