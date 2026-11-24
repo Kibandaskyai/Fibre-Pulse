@@ -28,6 +28,7 @@ import { expireDueSubscriptions } from "@/modules/billing/service";
 import { getCustomer, getCustomerHistory } from "@/modules/customers/service";
 import { listPackages } from "@/modules/packages/service";
 import { CustomerConnectionCard } from "@/components/network/customer-connection";
+import { TicketStatusBadge } from "@/components/operations/ops-badges";
 import { customerConnection, listRouters, routerEnforcementEnabled } from "@/modules/network/service";
 
 export const metadata: Metadata = { title: "Customer" };
@@ -202,21 +203,29 @@ export default async function CustomerPage({
             ) : null}
 
             {tab === "support" ? (
-              history.tickets.length ? (
-                <Table>
-                  <TableHeader><TableRow><TableHead>Ticket</TableHead><TableHead>Subject</TableHead><TableHead>Opened</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {history.tickets.map((t) => (
-                      <TableRow key={t.id}>
-                        <TableCell className="tabular">{t.ticket_number}</TableCell>
-                        <TableCell>{t.subject}</TableCell>
-                        <TableCell className="text-xs">{formatDate(t.created_at)}</TableCell>
-                        <TableCell className="capitalize">{t.status.replace("_", " ")}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : <p className="px-5 py-6 text-sm text-muted-foreground">No support tickets. The full support desk arrives in Phase 5.</p>
+              <>
+                {perms.has("tickets:edit") || perms.has("jobs:edit") ? (
+                  <div className="flex flex-wrap gap-2 px-5 pt-4">
+                    {perms.has("tickets:edit") ? <Button asChild size="sm" variant="secondary"><Link href={`/support/new?customer=${c.id}`}>New ticket</Link></Button> : null}
+                    {perms.has("jobs:edit") ? <Button asChild size="sm" variant="outline"><Link href={`/field-operations/new?customer=${c.id}`}>New field job</Link></Button> : null}
+                  </div>
+                ) : null}
+                {history.tickets.length ? (
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Ticket</TableHead><TableHead>Subject</TableHead><TableHead>Opened</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {history.tickets.map((t) => (
+                        <TableRow key={t.id}>
+                          <TableCell className="tabular"><Link className="text-primary hover:underline" href={`/support/${t.id}`}>{t.ticket_number}</Link></TableCell>
+                          <TableCell>{t.subject}</TableCell>
+                          <TableCell className="text-xs">{formatDate(t.created_at)}</TableCell>
+                          <TableCell><TicketStatusBadge status={t.status} /></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : <p className="px-5 py-6 text-sm text-muted-foreground">No support tickets for this customer.</p>}
+              </>
             ) : null}
             {!tab ? <p className="px-5 py-6 text-sm text-muted-foreground">Your role has no history views for this customer.</p> : null}
           </CardContent>

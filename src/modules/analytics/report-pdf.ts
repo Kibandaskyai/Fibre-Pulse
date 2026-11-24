@@ -8,12 +8,13 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 import { formatDate, formatDateTime, PAYMENT_METHOD_LABELS } from "@/lib/format";
 import { pdfMoney, periodText, summaryRows, type RevenueReport } from "./report";
 
-const A4: [number, number] = [595.28, 841.89];
-const MARGIN = 44;
-const INK = rgb(0.1, 0.12, 0.17);
-const MUTED = rgb(0.42, 0.46, 0.54);
+export const A4: [number, number] = [595.28, 841.89];
+export const A4_LANDSCAPE: [number, number] = [841.89, 595.28];
+export const MARGIN = 44;
+export const INK = rgb(0.1, 0.12, 0.17);
+export const MUTED = rgb(0.42, 0.46, 0.54);
 const RULE = rgb(0.84, 0.86, 0.9);
-const ACCENT = rgb(0.13, 0.4, 0.78);
+export const ACCENT = rgb(0.13, 0.4, 0.78);
 
 /** Keep text inside WinAnsi so the standard font can draw it. */
 export function pdfSafe(text: string): string {
@@ -24,21 +25,28 @@ export function pdfSafe(text: string): string {
     .replace(/[^\x20-\x7E -ÿ–—•€]/g, "?");
 }
 
-type Col = { header: string; width: number; align?: "left" | "right" };
+export type Col = { header: string; width: number; align?: "left" | "right" };
 
-class Writer {
+/** Page-by-page writer shared by the financial and the BI report PDFs. */
+export class Writer {
   doc: PDFDocument;
   page!: PDFPage;
   y = 0;
   pageNo = 0;
-  constructor(doc: PDFDocument, private font: PDFFont, private bold: PDFFont, private footer: string) {
+  constructor(
+    doc: PDFDocument,
+    private font: PDFFont,
+    private bold: PDFFont,
+    private footer: string,
+    readonly size: [number, number] = A4,
+  ) {
     this.doc = doc;
     this.newPage();
   }
   newPage() {
-    this.page = this.doc.addPage(A4);
+    this.page = this.doc.addPage(this.size);
     this.pageNo += 1;
-    this.y = A4[1] - MARGIN;
+    this.y = this.size[1] - MARGIN;
     this.page.drawText(pdfSafe(`${this.footer} · page ${this.pageNo}`), { x: MARGIN, y: 24, size: 7.5, font: this.font, color: MUTED });
   }
   ensure(h: number) {
@@ -54,7 +62,7 @@ class Writer {
     const size = opts.size ?? 9.5;
     const font = opts.bold ? this.bold : this.font;
     const words = pdfSafe(text).split(" ");
-    const width = A4[0] - MARGIN * 2;
+    const width = this.size[0] - MARGIN * 2;
     let line = "";
     const lines: string[] = [];
     for (const w of words) {

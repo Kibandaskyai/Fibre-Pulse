@@ -7,6 +7,7 @@ import { createRouterAction, setRouterCredentialsAction, updateRouterAction } fr
 export type RouterFormValues = {
   id: string; name: string; management_address: string | null; api_port: number | null; api_scheme: "https" | "http"; verify_tls: boolean;
   connector_agent_id: string | null; location_name: string | null; latitude: number | null; longitude: number | null; monitoring_enabled: boolean;
+  coverage_radius_m: number | null;
 };
 
 function Check({ id, name, label, hint, defaultChecked }: { id: string; name: string; label: string; hint: string; defaultChecked: boolean }) {
@@ -49,7 +50,7 @@ export function RouterForm({ router, connectors }: { router?: RouterFormValues; 
           <Input id="r-port" name="apiPort" inputMode="numeric" defaultValue={router?.api_port ?? ""} />
         </Field>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <Field id="r-loc" label="Site (optional)" errors={e?.locationName}>
           <Input id="r-loc" name="locationName" defaultValue={router?.location_name ?? ""} placeholder="Ruiru POP" />
         </Field>
@@ -58,6 +59,9 @@ export function RouterForm({ router, connectors }: { router?: RouterFormValues; 
         </Field>
         <Field id="r-lng" label="Longitude (optional)" errors={e?.longitude}>
           <Input id="r-lng" name="longitude" inputMode="decimal" defaultValue={router?.longitude ?? ""} placeholder="36.9610" />
+        </Field>
+        <Field id="r-cov" label="Coverage (m, optional)" errors={e?.coverageRadiusM} hint="Drawn on the network map.">
+          <Input id="r-cov" name="coverageRadiusM" inputMode="numeric" defaultValue={router?.coverage_radius_m ?? ""} placeholder="1500" />
         </Field>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">

@@ -203,6 +203,61 @@ async function main() {
     await asOwner.auth.signOut();
   }
 
+  // Phase 5: coverage circles for the simulated routers, approximate demo
+  // map points for customers (estate centre plus a small offset, never a real
+  // address), and a few tickets and a job created as real staff so triggers
+  // write the same history and notifications the app does.
+  await db.from("routers").update({ coverage_radius_m: 1500 }).eq("tenant_id", mwangaza).eq("name", "Kasarani Core (simulated)");
+  await db.from("routers").update({ coverage_radius_m: 900 }).eq("tenant_id", mwangaza).eq("name", "Roysambu Distribution (simulated)");
+  const ESTATES: Record<string, [number, number]> = {
+    Kasarani: [-1.2219, 36.8981], Roysambu: [-1.2185, 36.8857], Zimmerman: [-1.2133, 36.8946], Mwiki: [-1.221, 36.933],
+    "Clay City": [-1.23, 36.905], "Garden Estate": [-1.229, 36.865], "Kahawa West": [-1.185, 36.889], "Githurai 45": [-1.2, 36.915],
+    Ruiru: [-1.146, 36.96], Thome: [-1.214, 36.874], "Lucky Summer": [-1.236, 36.893], Seasons: [-1.23, 36.887],
+  };
+  const { data: located } = await db.from("customers").select("id, estate, customer_number").eq("tenant_id", mwangaza).order("customer_number");
+  for (const [i, c] of (located ?? []).entries()) {
+    const centre = ESTATES[c.estate as string];
+    if (!centre) continue;
+    const off = ((i % 5) - 2) * 0.0012;
+    await db.from("customer_locations").upsert(
+      { customer_id: c.id, tenant_id: mwangaza, latitude: centre[0] + off, longitude: centre[1] - off, accuracy_m: 50 },
+      { onConflict: "customer_id" },
+    );
+  }
+
+  const { count: ticketCount } = await db.from("support_tickets").select("id", { count: "exact", head: true }).eq("tenant_id", mwangaza);
+  if (!ticketCount) {
+    const as = async (email: string) => {
+      const c = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { error } = await c.auth.signInWithPassword({ email, password: DEMO_PASSWORD });
+      if (error) throw error;
+      return c;
+    };
+    const agent = await as("support@mwangaza.test");
+    const byEstate = new Map((located ?? []).map((c) => [c.estate as string, c.id as string]));
+    const ticket = async (estate: string, category: string, priority: string, subject: string, description: string, assignedTo: string | null) =>
+      (await must(
+        agent.from("support_tickets").insert({
+          tenant_id: mwangaza, customer_id: byEstate.get(estate) ?? null, category, priority, subject, description, assigned_to: assignedTo, created_by: support,
+        }).select("id").single(),
+      )) as { id: string };
+    const t1 = await ticket("Zimmerman", "no_internet", "high", "No internet since last night", "Customer says the router lights are on but nothing loads. Fictional demo ticket.", support);
+    const t2 = await ticket("Mwiki", "slow_internet", "medium", "Slow speeds in the evening", "Speeds drop below 5 Mbps after 8 PM. Fictional demo ticket.", null);
+    const t3 = await ticket("Kasarani", "payment_issue", "low", "Paid but still shows a balance", "Customer sent an M-Pesa message. Fictional demo ticket.", support);
+    await must(agent.rpc("add_ticket_comment", { p_ticket: t1.id, p_note: "Called the customer. Fibre may be cut near the gate; sending a technician." }));
+    await must(agent.from("support_tickets").update({ status: "resolved", resolution_notes: "Payment found and allocated; balance cleared." }).eq("id", t3.id));
+    void t2;
+    const { data: techRow } = await db.from("technicians").select("id").eq("tenant_id", mwangaza).eq("profile_id", tech).single();
+    await must(
+      agent.from("installation_jobs").insert({
+        tenant_id: mwangaza, customer_id: byEstate.get("Zimmerman") ?? null, ticket_id: t1.id, technician_id: techRow?.id ?? null,
+        job_type: "fault_investigation", scheduled_for: new Date(Date.now() + 3 * 3_600_000).toISOString(),
+        address: "Zimmerman, near the main gate (fictional)", notes: "Check the drop cable and the ONT.", created_by: support,
+      }),
+    );
+    await agent.auth.signOut();
+  }
+
   await db.from("notifications").insert({
     tenant_id: mwangaza, recipient_id: owner, type: "system", title: "Welcome to FibrePulse",
     body: "This is a local demo workspace with fictional data. Routers are simulated.",

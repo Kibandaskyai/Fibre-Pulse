@@ -51,7 +51,7 @@ describe("ISP roles", () => {
 
   it("technician loses sight of the customer once the job is completed", async () => {
     await asUser(w.technicianA, async (c) => {
-      const r = await tryQuery(c, `update installation_jobs set status = 'completed', completed_at = now() where id = $1`, [
+      const r = await tryQuery(c, `update installation_jobs set status = 'completed', completion_notes = 'Replaced the patch cord' where id = $1`, [
         w.a.ids.job,
       ]);
       expect(r.ok && r.rowCount).toBe(1);

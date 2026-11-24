@@ -53,3 +53,12 @@
 - Retention and deletion (to implement in Phase 5/7): terminated customers anonymised after an agreed period; raw network metrics kept ~30 days, rollups longer; audit logs kept for at least the financial record retention period (7 years under Kenyan tax law; confirm with the ISP's accountant).
 - Breach handling: ODPC notification within 72 hours of becoming aware; keep an incident runbook.
 - Development uses fictional data only.
+
+## Phase 5 notes
+
+- Exact customer locations are only sent to the browser for roles with `customers:view_location` (owner and network administrator). Other roles get area totals; the map says so.
+- Notification links are same-site paths only (`safeNextPath`), so a crafted notification cannot redirect off the site.
+- Ticket and job history cannot be written or edited by users; only the triggers write it.
+- BI report functions return aggregates only and check the report permission inside the database, as well as in the page and export route.
+- Email and SMS copies are queued with the recipient's profile only; the delivery worker (not built) must look up contact details server-side with the service role and must respect the person's preferences already applied at insert time.
+

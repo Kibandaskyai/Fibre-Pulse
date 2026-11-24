@@ -34,12 +34,12 @@ export type RouterRow = {
   location_name: string | null; latitude: number | null; longitude: number | null; status: "online" | "offline" | "unknown";
   monitoring_enabled: boolean; last_synced_at: string | null; last_sync_error: string | null; uptime_seconds: number | null;
   cpu_load_pct: number | null; memory_used_pct: number | null; data_source: DataSource; connector_agent_id: string | null;
-  serial_number: string | null; connector: { name: string; last_seen_at: string | null } | null;
+  serial_number: string | null; coverage_radius_m: number | null; connector: { name: string; last_seen_at: string | null } | null;
   sessions: number; has_credentials: boolean; credential_user: string | null;
 };
 
 const ROUTER_COLUMNS =
-  "id, name, model, identity, routeros_version, management_address, api_port, api_scheme, verify_tls, location_name, latitude, longitude, status, monitoring_enabled, last_synced_at, last_sync_error, uptime_seconds, cpu_load_pct, memory_used_pct, data_source, connector_agent_id, serial_number, connector_agents(name, last_seen_at)";
+  "id, name, model, identity, routeros_version, management_address, api_port, api_scheme, verify_tls, location_name, latitude, longitude, status, monitoring_enabled, last_synced_at, last_sync_error, uptime_seconds, cpu_load_pct, memory_used_pct, data_source, connector_agent_id, serial_number, coverage_radius_m, connector_agents(name, last_seen_at)";
 
 export async function listRouters(db: SupabaseClient, tenantId: string): Promise<RouterRow[]> {
   const [routers, sessions, creds] = await Promise.all([
@@ -108,6 +108,7 @@ function routerRow(tenantId: string, input: RouterInput) {
     latitude: input.latitude,
     longitude: input.longitude,
     monitoring_enabled: input.monitoringEnabled,
+    coverage_radius_m: input.coverageRadiusM,
   };
 }
 
