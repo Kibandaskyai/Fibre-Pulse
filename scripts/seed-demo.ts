@@ -10,7 +10,7 @@
  *     and two SIMULATED M-Pesa payments that can never be verified
  *   - "Mwangaza Fibre Networks" (active) with one user per ISP role
  *   - "Pwani Connect" (pending) to demonstrate tenant isolation
- *   - fictional packages and customers, and SIMULATED routers
+ *   - fictional customers (no monthly packages until the client gives prices), and SIMULATED routers
  *   - (Phase 6) Mwangaza's signed 2.75% agreement from October 2026
  *   - (Phase 8) the pilot's 9 hotspot plans, M-Pesa-only settings and a few
  *     SIMULATED hotspot codes (DEMO00…DEMO11). The demo WiFi page is
@@ -103,18 +103,9 @@ async function main() {
   }
   await db.from("technicians").upsert({ tenant_id: mwangaza, profile_id: tech, zone: "Kasarani / Roysambu", phone: "+254700100005" }, { onConflict: "tenant_id,profile_id" });
 
-  // Pilot ISP's suggested monthly packages (provided 23 Nov 2026). Upload is
-  // assumed equal to download (symmetric fibre) until the ISP confirms.
-  const packages = [
-    { name: "Micro", download_mbps: 5, upload_mbps: 5, price: 1000, billing_period: "monthly", duration_days: null },
-    { name: "Lite", download_mbps: 10, upload_mbps: 10, price: 1500, billing_period: "monthly", duration_days: null },
-    { name: "Starter", download_mbps: 20, upload_mbps: 20, price: 2000, billing_period: "monthly", duration_days: null },
-    { name: "Plus", download_mbps: 30, upload_mbps: 30, price: 2500, billing_period: "monthly", duration_days: null },
-    { name: "Family", download_mbps: 40, upload_mbps: 40, price: 3000, billing_period: "monthly", duration_days: null },
-  ];
-  for (const p of packages) {
-    await db.from("service_packages").upsert({ tenant_id: mwangaza, description: "Pilot ISP suggested package", ...p }, { onConflict: "tenant_id,name" });
-  }
+  // No monthly packages are seeded: the first list (23 Nov 2026) was
+  // tentative and the client has not given monthly prices yet. The owner
+  // adds them under Packages. Demo monthly customers start with no package.
 
   // Phase 8 (client update 24 Nov 2026): the pilot ISP mostly sells hotspot
   // time per device, all 10 Mbps, paid by M-Pesa paybill only. Prices are the
@@ -258,18 +249,16 @@ async function main() {
   // Phase 2: sell packages through the real database function, signed in as
   // the owner, so invoices and audit rows are exactly what the app creates.
   const { count: subCount } = await db.from("subscriptions").select("id", { count: "exact", head: true }).eq("tenant_id", mwangaza);
-  if (!subCount) {
+  const { data: monthlyPkgs } = await db.from("service_packages").select("id, name").eq("tenant_id", mwangaza).eq("status", "active");
+  if (!subCount && monthlyPkgs?.length) {
     const asOwner = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
     const { error: signInError } = await asOwner.auth.signInWithPassword({ email: "owner@mwangaza.test", password: DEMO_PASSWORD });
     if (signInError) throw signInError;
-    const { data: pkgs } = await db.from("service_packages").select("id, name").eq("tenant_id", mwangaza);
-    const byName = new Map((pkgs ?? []).map((p) => [p.name as string, p.id as string]));
     const { data: custs } = await db.from("customers").select("id, full_name, status").eq("tenant_id", mwangaza).order("customer_number");
-    const plan = ["Lite", "Starter", "Micro", "Plus", "Family", "Starter", "Lite", "Micro", "Plus", "Starter"];
     let i = 0;
     for (const c of custs ?? []) {
       if (c.status !== "active" && c.status !== "suspended") continue;
-      const pkg = byName.get(plan[i++ % plan.length]);
+      const pkg = monthlyPkgs[i++ % monthlyPkgs.length].id;
       const { data: subId, error } = await asOwner.rpc("purchase_subscription", { p_customer: c.id, p_package: pkg });
       if (error) throw error;
       if (c.status === "suspended") {

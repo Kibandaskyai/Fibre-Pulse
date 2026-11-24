@@ -21,7 +21,7 @@ export const ISP_NAV: NavItem[] = [
   { href: "/overview", label: "Overview", icon: "overview", permission: null, phase: 3, description: "Executive dashboard: customers, collections and network health at a glance." },
   { href: "/hotspot", label: "Hotspot", icon: "hotspot", permission: "subscriptions:view", phase: 8, description: "Time plans people buy per device, access codes, sales today and people online." },
   { href: "/customers", label: "Customers", icon: "customers", permission: "customers:view", phase: 2, description: "Monthly customers with their own routers: register, search and manage them, with payment, connection and support history." },
-  { href: "/packages", label: "Packages", icon: "packages", permission: "packages:view", phase: 2, description: "Monthly packages for customers with their own routers: speeds, prices and billing periods." },
+  { href: "/packages", label: "PPPoE plans", icon: "packages", permission: "packages:view", phase: 2, description: "Monthly PPPoE plans for households with their own routers: speeds, prices and billing periods." },
   { href: "/subscriptions", label: "Subscriptions", icon: "subscriptions", permission: "subscriptions:view", phase: 2, description: "Activate, renew, upgrade, suspend and restore customer subscriptions." },
   { href: "/payments", label: "Payments", icon: "payments", permission: "payments:view", phase: 2, description: "M-Pesa and bank payments, invoices, allocation and duplicate detection." },
   { href: "/revenue", label: "Revenue", icon: "revenue", permission: "revenue:view", phase: 3, description: "Verified collections, outstanding balances and revenue by package, area and method." },

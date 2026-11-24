@@ -70,3 +70,12 @@ test("the WiFi page needs no sign-in and hides unknown ISPs", async ({ page }) =
   const res = await page.goto("/wifi/no-such-isp");
   expect(res?.status()).toBe(404);
 });
+
+test("monthly plans are PPPoE household plans, with Static IP kept for later", async ({ page }) => {
+  await signIn(page, "owner@mwangaza.test");
+  await page.goto("/packages");
+  await expect(page.getByRole("heading", { name: "PPPoE plans" })).toBeVisible();
+  await page.goto("/packages/new");
+  await expect(page.getByLabel("Connection type")).toHaveValue("pppoe");
+  await expect(page.locator("#pkg-type option[value=static]")).toHaveText("Static IP");
+});

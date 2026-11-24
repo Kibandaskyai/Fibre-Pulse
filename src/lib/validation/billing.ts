@@ -45,6 +45,7 @@ export const packageSchema = z
     uploadMbps: positiveNumber("Upload speed", 100_000),
     price: money("price"),
     billingPeriod: z.enum(BILLING_PERIODS, "Choose a billing period."),
+    connectionType: z.enum(["pppoe", "static"]).default("pppoe"),
     durationDays: z.string().trim().optional().prefault(""),
     dataLimitGb: z.string().trim().optional().prefault(""),
     fairUsagePolicy: optionalText(1000),

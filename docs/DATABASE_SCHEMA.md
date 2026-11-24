@@ -65,3 +65,5 @@ The 23 tables required by the spec, plus additions marked (+).
 ## Relationships (main)
 
 tenants 1─* tenant_members *─1 profiles · tenants 1─* customers 1─1 customer_locations · customers 1─* subscriptions *─1 service_packages · customers 1─* invoices 1─* invoice_lines · payments *─* invoices via payment_allocations · payments 1─* payment_reconciliation_records · connector_agents 1─* routers 1─* router_interfaces / network_sessions / network_metrics / network_alerts · routers 1─1 router_credentials · customers 1─* support_tickets 1─* installation_jobs *─1 technicians · tenants 1─* commercial_agreements 1─* platform_fee_records *─1 platform_invoices.
+
+**Plan connection type (24 Nov 2026):** `service_packages.connection_type` is `pppoe` (default: household PPPoE, router dial-in or RADIUS) or `static` (fixed IP; billed the same way, not disconnected automatically yet). The pilot ISP has no static customers; the type stays for future ISPs.

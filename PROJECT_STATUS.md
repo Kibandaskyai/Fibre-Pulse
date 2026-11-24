@@ -10,7 +10,8 @@ Legend: **Done and tested** · **Simulated** (works, uses labelled test data) ·
 - First customer: one pilot ISP moving off a provider that charges 3%. Multi-tenant structure kept from day one.
 - Platform fee: **2.75% of gross verified subscription collections** (pilot default, configurable per ISP agreement).
 - **No cash** payment method for the pilot. The pilot ISP accepts **M-Pesa paybill only** (client update, 24 Nov 2026); other ISPs can choose M-Pesa, bank transfer or other in Settings › Organisation.
-- Pilot ISP packages (monthly, provided 23 Nov 2026): Micro 5 Mbps Ksh 1,000 · Lite 10 Mbps Ksh 1,500 · Starter 20 Mbps Ksh 2,000 · Plus 30 Mbps Ksh 2,500 · Family 40 Mbps Ksh 3,000. Used in the demo seed. Upload speed assumed equal to download until confirmed. Pilot size not provided yet.
+- Monthly packages: the first list (23 Nov 2026) was tentative and has been removed (user, 24 Nov 2026). Monthly prices for own-router customers are still to come; the demo seeds none.
+- Monthly plans are **PPPoE plans for households** with their own router (Packages is now "PPPoE plans"). Plans can also be **Static IP** for future ISPs; the pilot has no static customers. Static customers are billed but not disconnected automatically yet (TODO: router address-list enforcement).
 - Client update of 24 Nov 2026: the pilot ISP buys internet from **Safaricom** and resells it along Thika Road to up to about **10,000 users**. Most are **hotspot** users who buy time per device (each phone or gadget pays separately); a minority pay monthly with their own routers. **No KRA or VAT.** Users are cut off automatically when time or the package ends. The app shows when the Safaricom internet is down and how many people are online; money is shown by day and by month. Hotspot plans (all 10 Mbps): 1 hour Ksh 10, 3 hours 15, 8 hours 30, 12 hours 40, 24 hours 50, 2 days 70, 3 days 100, 7 days 250, monthly 700.
 - Answers of 24 Nov 2026: a package that **ends without renewal disconnects** the customer (like suspension); the pilot ISP uses **RADIUS**; SMS goes through **Safaricom**; platform invoices go out **automatically** each month.
 
@@ -191,12 +192,12 @@ Test totals at end of Phase 7: **91 unit and connector tests, 276 database tests
 | Scale: 3,000 devices online and 10,000 codes on file: first connector report about 1 s, then about 0.15 s each minute; the RADIUS list is only re-sent when it changes | Done and tested | `tests/db/hotspot.test.ts` › scale |
 | Hotspot codes by SMS through the same worker (`customer_sms_outbox`) | Built; Safaricom SMS waits for the contract | — |
 
-Test totals after Phase 8: **403 unit, connector and database tests and 64 browser tests, all passing**, plus lint, typecheck and production build.
+Test totals after Phase 8: **403 unit, connector and database tests and 65 browser tests, all passing**, plus lint, typecheck and production build.
 
 ### Open questions for the pilot ISP (Phase 8)
 
 - What do "Limited" and "Unlimited" mean on the current plans (a data cap, a speed drop after some use, or something else)? Today they are labels only.
-- Monthly own-router customers: are the Micro to Family prices still right, or do they also pay Ksh 700?
+- PPPoE household plans: names, speeds and prices (left empty until the client sends them).
 - Should a code that was paid but never used expire after some days? Today it waits until used.
 - Should the clock start at first login (current behaviour) or at payment?
 - The paybill number and the Safaricom support number for the outage banner.
