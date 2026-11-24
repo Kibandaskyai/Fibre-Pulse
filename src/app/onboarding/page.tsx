@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { MailCheck } from "lucide-react";
-import { Brand } from "@/components/layout/brand";
+import { BrandLogo } from "@/components/layout/brand";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-6 px-4 py-10">
       <div className="flex items-center justify-between">
-        <Brand />
+        <BrandLogo className="w-48" />
         <form action={signOutAction}>
           <button className="text-sm text-muted-foreground hover:text-foreground" type="submit">Sign out</button>
         </form>
