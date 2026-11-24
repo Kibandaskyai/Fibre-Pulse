@@ -8,7 +8,7 @@
 | Supabase Postgres | Supabase | All data, RLS on every table, SQL guard functions | Phase 1 built |
 | Supabase Auth | Supabase | Email/password, sessions in httpOnly cookies | Phase 1 built |
 | Background worker (Node) | Managed host | Subscription expiry, alert evaluation, metric rollups, monthly fees, notifications | Phase 3–6 |
-| Connector Agent (Node) | Inside each ISP's network | Read-only polling of MikroTik routers, outbound HTTPS to ingest API | Phase 4 |
+| Connector Agent (Node) | Inside each ISP's network | Polls MikroTik routers (RouterOS 7 REST), signed outbound HTTPS to `/api/connector/v1/*`; PPPoE disable/enable only when the owner and the connector both allow it | Phase 4 built |
 | Payment provider layer | Web app + worker | `PaymentProvider` interface, manual provider, Daraja stub | Phase 2 (stub), engineer (live) |
 
 ```

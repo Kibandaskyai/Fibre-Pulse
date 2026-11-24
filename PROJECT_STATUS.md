@@ -1,6 +1,6 @@
 # FibrePulse project status
 
-_Last updated: 23 November 2026 (end of Phase 3)._
+_Last updated: 23 November 2026 (end of Phase 4)._
 
 Legend: **Done and tested** · **Simulated** (works, uses labelled test data) · **Not built** (planned phase in brackets).
 
@@ -64,7 +64,7 @@ Test totals at end of Phase 2: **212 unit and database tests and 23 browser test
 | Area | Status | Evidence |
 |---|---|---|
 | Revenue functions in the database: KPIs, daily/monthly series, breakdown by package/area/method, outstanding ageing, package mix, customer growth, area list. Kenyan dates, area filter, `revenue:view` checked in SQL | Done and tested | `tests/db/revenue.test.ts` (15) |
-| Executive dashboard (`/overview`): date range and area filters; customers, verified collections, service and network KPIs; collections, 12-month trend, methods, areas, growth, package mix; recent payments, customers and alerts. Network uptime and online/offline show a dash until the connector exists (Phase 4) | Done and tested | e2e, screenshots |
+| Executive dashboard (`/overview`): date range and area filters; customers, verified collections, service and network KPIs; collections, 12-month trend, methods, areas, growth, package mix; recent payments, customers and alerts. Network uptime and online/offline now come from the connector (Phase 4) | Done and tested | e2e, screenshots |
 | Revenue analytics (`/revenue`): collected vs previous period, applied vs credit, invoiced, awaiting verification, outstanding and overdue, reversals and refunds, packages sold, simulated exclusions; charts; package/area/method; cash shown as "not accepted"; outstanding by age and the 20 largest balances | Done and tested | e2e `phase3.spec.ts` |
 | Statement reconciliation (`/payments/reconcile`): upload an M-Pesa paybill or bank CSV, auto-detect layout and columns, preview, then verify exact matches (reference and amount) in one audited step; lists amount mismatches, simulated hits, statement money not in FibrePulse (kept for follow-up) and recorded payments missing from the statement | Done and tested | `tests/db/reconciliation.test.ts` (9), unit parser tests, e2e |
 | Daily collections and monthly revenue reports (`/reports`) on screen, plus CSV and PDF downloads of these and of any revenue page filter | Done and tested | unit, e2e (file names, contents, `%PDF`) |
@@ -80,11 +80,32 @@ Test totals at end of Phase 3: **248 unit and database tests and 29 browser test
 - Area matches a customer's county, town or estate.
 - Reconciliation only verifies a payment when the reference, method and amount all match and the payment is successful, unverified and not simulated. Re-uploading the same statement changes nothing.
 
+## Phase 4: Network monitoring and the MikroTik connector
+
+| Area | Status | Evidence |
+|---|---|---|
+| Connector agent for MikroTik RouterOS 7 REST (`connector/mikrotik-agent/`): polling, rates, sessions, buffering and backoff, simulator, Docker and systemd packaging | Done and tested | `tests/connector/agent.test.ts` (13) |
+| Signed connector API (`/api/connector/v1/sync`, `ingest`, `commands`): token hash, HMAC, replay and rate limits, no service role | Done and tested | `tests/db/network.test.ts` (20) |
+| Routers, encrypted API credentials, connector registration (token shown once) | Done and tested | e2e `phase4.spec.ts` |
+| NOC (`/network`): routers online, sessions, paying customers online, alerts, router table, download and upload traffic; router pages with CPU, memory, sessions, interfaces, connected customers | Done and tested | e2e, screenshots |
+| Alerts (`/alerts`): router offline, high CPU/memory, connector offline, failed disconnects; de-duplicated, auto-clearing, acknowledge/resolve with notes, in-app notifications | Done and tested | DB and e2e |
+| Suspend disconnects on the router, restore reconnects: owner toggle plus connector `ALLOW_ROUTER_WRITES`; results and retry on the customer profile | Done and tested | DB and e2e; agent tests for the RouterOS calls |
+| Overview: online/offline customers and 24-hour router availability (real routers only) | Done | screenshots |
+| Wi-Fi and optical signal | Not measured | needs CPE or OLT telemetry; the NOC says so |
+
+Test totals at end of Phase 4: **283 unit, database and connector tests and 36 browser tests, all passing.**
+
+### Open questions for the pilot ISP
+
+- Should expiry or cancellation also disconnect on the router? (Today only suspension does.)
+- Do they use RADIUS? If so, disconnect has to happen in RADIUS, not on the router.
+- Hotspot customers are monitored but not disconnected.
+- RouterOS versions (7.1+ needed) and the computer that will run the connector.
+
 ## Not built yet
 
 | Module | Phase |
 |---|---|
-| MikroTik connector agent, ingest API, router monitoring, alerts, NOC screen | 4 |
 | Support desk, field operations, notifications delivery (email/SMS), Leaflet map, BI reports | 5 |
 | Fee engine, platform invoices, agreements UI, platform revenue analytics, support-access UI | 6 |
 | Live Safaricom Daraja / M-Pesa | Software engineer (see docs/MPESA_INTEGRATION_HANDOVER.md) |

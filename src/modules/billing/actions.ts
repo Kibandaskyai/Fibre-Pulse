@@ -18,6 +18,7 @@ import {
 } from "@/lib/validation/billing";
 import type { ActionResult } from "@/lib/validation/common";
 import * as billing from "./service";
+import { commandQueuedSince, enforcementMessage, routerEnforcementEnabled } from "@/modules/network/service";
 
 /** First validation message, for compact forms that show one message. */
 function firstIssue(error: z.ZodError): string {
@@ -56,20 +57,23 @@ export async function changeSubscriptionAction(_prev: ActionResult | null, formD
   const parsed = subscriptionActionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: firstIssue(parsed.error) };
   const { action, subscriptionId, reason } = parsed.data;
-  return guarded(action === "cancel" ? "subscriptions:edit" : "subscriptions:suspend", async () => {
+  return guarded(action === "cancel" ? "subscriptions:edit" : "subscriptions:suspend", async (tenantId) => {
+    const startedAt = new Date(Date.now() - 1000).toISOString();
     if (action !== "restore") {
       const r = reasonSchema.safeParse(reason);
       if (!r.success) return { ok: false, message: firstIssue(r.error) };
     }
-    const result = await billing.changeSubscription(await createClient(), subscriptionId, action, reason);
+    const db = await createClient();
+    const result = await billing.changeSubscription(db, subscriptionId, action, reason);
     if (!result.ok) return result;
     const customerId = String(formData.get("customerId") ?? "");
     refresh("/subscriptions", ...(customerId ? [`/customers/${customerId}`] : []));
-    const message = {
-      suspend: "Subscription suspended. Until the router connector is installed, also disconnect the customer on the router yourself.",
-      restore: result.data === "expired" ? "Restored, but the paid period had already ended, so it is now expired." : "Subscription restored.",
-      cancel: "Subscription cancelled.",
-    }[action];
+    let message = "Subscription cancelled.";
+    if (action === "restore" && result.data === "expired") message = "Restored, but the paid period had already ended, so it is now expired.";
+    else if (action !== "cancel") {
+      const [enforcement, cmd] = await Promise.all([routerEnforcementEnabled(db, tenantId), commandQueuedSince(db, subscriptionId, startedAt)]);
+      message = enforcementMessage(action, cmd, enforcement);
+    }
     return { ok: true, message };
   });
 }

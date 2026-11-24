@@ -34,7 +34,8 @@ export function Field({ id, label, hint, errors, children }: { id: string; label
   );
 }
 
-export function FormMessage({ state }: { state: ActionResult | null }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function FormMessage({ state }: { state: ActionResult<any> | null }) {
   if (!state?.message) return null;
   return (
     <Alert variant={state.ok ? "success" : "danger"} aria-live="polite">
@@ -48,7 +49,8 @@ export function FormMessage({ state }: { state: ActionResult | null }) {
  * validation error never wipes what the person typed. The form is cleared
  * only after a successful result (unless resetOnSuccess is false).
  */
-export function useFormAction<T extends ActionResult | null>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function useFormAction<T extends ActionResult<any> | null>(
   action: (prev: T | null, formData: FormData) => Promise<T>,
   { resetOnSuccess = true }: { resetOnSuccess?: boolean } = {},
 ) {
@@ -59,7 +61,9 @@ export function useFormAction<T extends ActionResult | null>(
   }, [state, resetOnSuccess]);
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+    // Include the clicked button's name/value, so one form can offer several actions.
+    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const fd = new FormData(e.currentTarget, submitter?.name ? submitter : undefined);
     startTransition(() => dispatch(fd));
   };
   return { state, pending, formProps: { ref, onSubmit } };

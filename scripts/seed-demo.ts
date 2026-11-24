@@ -11,6 +11,9 @@
  *   - "Mwangaza Fibre Networks" (active) with one user per ISP role
  *   - "Pwani Connect" (pending) to demonstrate tenant isolation
  *   - fictional packages and customers, and SIMULATED routers
+ *   - (Phase 4) a demo connector for the simulated routers. Its token is
+ *     written to connector/mikrotik-agent/.env (git-ignored) so
+ *     `npm run connector:demo` reports SIMULATED readings to the local app.
  *
  * All people, phone numbers and places are fictional. Router rows are marked
  * data_source = 'simulated'. No verified payments are created: demo payments
@@ -20,6 +23,9 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { execSync } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 const DEMO_PASSWORD = "FibrePulse-Demo-2026";
 
@@ -139,6 +145,32 @@ async function main() {
     await db.from("routers").upsert({ tenant_id: mwangaza, data_source: "simulated", status: "unknown", ...r }, { onConflict: "tenant_id,name" });
   }
 
+  // Phase 4: a demo connector for the simulated routers. The token is rotated
+  // on every seed and written only to the git-ignored local agent .env file.
+  const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  const token = "fpc_" + Array.from(randomBytes(40), (b) => BASE62[b % 62]).join("");
+  const tokenFields = { token_hash: createHash("sha256").update(token).digest("hex"), token_prefix: token.slice(0, 12), status: "pending" };
+  const existingAgent = await must(db.from("connector_agents").select("id").eq("tenant_id", mwangaza).eq("name", "Demo simulator").maybeSingle());
+  const agentRow = (existingAgent
+    ? await must(db.from("connector_agents").update(tokenFields).eq("id", (existingAgent as { id: string }).id).select("id").single())
+    : await must(db.from("connector_agents").insert({ tenant_id: mwangaza, name: "Demo simulator", created_by: owner, ...tokenFields }).select("id").single())) as { id: string };
+  const agentId = agentRow.id;
+  await db.from("routers").update({ connector_agent_id: agentId, monitoring_enabled: true }).eq("tenant_id", mwangaza).eq("data_source", "simulated");
+  writeFileSync(
+    join(process.cwd(), "connector/mikrotik-agent/.env"),
+    `# Written by npm run db:seed for the LOCAL demo only. Simulated routers, no real devices.\nFIBREPULSE_URL=http://localhost:3000\nFIBREPULSE_TOKEN=${token}\nSIMULATE=true\nALLOW_ROUTER_WRITES=false\nPOLL_INTERVAL_SECONDS=60\nSYNC_INTERVAL_SECONDS=15\n`,
+    { mode: 0o600 },
+  );
+
+  // Link demo customers to the PPPoE usernames the simulator reports, so the
+  // NOC and customer profiles show who is online (all SIMULATED sessions).
+  const simUser = (router: string, i: number) => `sim-${router.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 12)}-${String(i).padStart(2, "0")}`;
+  const { data: linkable } = await db.from("customers").select("id").eq("tenant_id", mwangaza).in("status", ["active", "suspended"]).is("pppoe_username", null).order("customer_number");
+  const slots = [...[1, 2, 3, 4, 5].map((i) => simUser("Kasarani Core (simulated)", i)), ...[1, 2, 3, 4].map((i) => simUser("Roysambu Distribution (simulated)", i))];
+  for (const [i, c] of (linkable ?? []).slice(0, slots.length).entries()) {
+    await db.from("customers").update({ pppoe_username: slots[i] }).eq("id", c.id);
+  }
+
   // Phase 2: sell packages through the real database function, signed in as
   // the owner, so invoices and audit rows are exactly what the app creates.
   const { count: subCount } = await db.from("subscriptions").select("id", { count: "exact", head: true }).eq("tenant_id", mwangaza);
@@ -186,6 +218,9 @@ Done. Sign in at http://localhost:3000 with password ${DEMO_PASSWORD}:
   owner@pwani.test        ISP Owner (Pwani Connect, pending activation)
   admin@fibrepulse.test   FibrePulse Super Administrator
   support@fibrepulse.test FibrePulse Support Administrator
+
+Simulated network data: with the app running, start the demo connector with
+  npm run connector:demo
 `);
 }
 

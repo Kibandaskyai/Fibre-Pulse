@@ -19,6 +19,19 @@
 | No secrets in client code; `.env*` ignored by git except `.env.example` | `.gitignore` |
 | `server-only` on modules that must never reach the browser | `src/lib/supabase/server.ts`, `src/lib/auth/*` |
 
+## Network connector (Phase 4)
+
+| Control | Where |
+|---|---|
+| Connector token `fpc_` + 40 random characters, shown once, stored as SHA-256; revocable | `src/modules/network/service.ts`, `connector_agents` |
+| Every request HMAC-signed over time, nonce, method, path and body hash; 5-minute window; nonces single use; 120 requests a minute | `private.authenticate_connector` |
+| Connector routes run with the publishable key; no service-role key in the app | `src/app/api/connector/v1/*` |
+| Router passwords AES-256-GCM encrypted in the app server with `ROUTER_CREDENTIALS_KEY`, write-only to users, decrypted only to answer an authenticated connector; or kept only on the connector machine | `src/lib/connector/credentials.ts` |
+| Simulated readings refused for real routers and vice versa | `connector_ingest` |
+| Router writes need the owner's toggle, `ALLOW_ROUTER_WRITES=true` on the connector and the router user's write policy; only PPPoE disable/enable is possible | migration `20261126000100`, `connector/mikrotik-agent/src/commands.ts` |
+| Telemetry updates do not flood the audit log; configuration changes, credentials, commands and alert handling are audited | audit triggers |
+| Retention: metrics 90 days, closed sessions 365 days, nonces 1 hour | `network_watchdog` |
+
 ## Production checklist (for the engineer)
 
 - [ ] Enable email confirmation in Supabase Auth (local config has it off for development).
@@ -26,7 +39,7 @@
 - [ ] Enable MFA (TOTP) and require it for ISP owners and platform admins.
 - [ ] Set `site_url` and allowed redirect URLs to the production domain only.
 - [ ] Add security headers (CSP, HSTS, frame-ancestors) in `next.config.ts`.
-- [ ] Add rate limiting on the connector ingest and payment callback endpoints.
+- [ ] Add rate limiting on the payment callback endpoint (the connector API already limits each connector to 120 requests a minute in the database).
 - [ ] Router credential encryption key in a secret manager (`ROUTER_CREDENTIALS_KEY`), with rotation via `key_version`.
 - [ ] Daily backups and point-in-time recovery on Supabase Pro; test a restore.
 - [ ] Error monitoring (e.g. Sentry) with PII scrubbing.

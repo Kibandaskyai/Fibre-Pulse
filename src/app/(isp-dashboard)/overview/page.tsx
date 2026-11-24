@@ -33,6 +33,7 @@ import {
   subscriptionDistribution,
 } from "@/modules/analytics/service";
 import { expireDueSubscriptions } from "@/modules/billing/service";
+import { networkAvailability, networkSummary } from "@/modules/network/service";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -80,11 +81,12 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       : none,
   ]);
 
+  const [live, availability] = can.network ? await Promise.all([networkSummary(db, tenantId), networkAvailability(db, tenantId, 24)]) : [null, null];
   const k = kpis?.ok ? kpis.data : null;
   const setup = [
     { done: ctx.active.tenantStatus === "active", label: "FibrePulse activates your workspace", href: null, show: true },
     { done: (mix?.ok ? mix.data.length : 0) > 0 || (counts?.total ?? 0) > 0, label: "Create packages and add customers", href: "/customers/import", show: perms.has("customers:edit") },
-    { done: (net?.routers ?? 0) - (net?.routersSimulated ?? 0) > 0, label: "Install the FibrePulse Connector for MikroTik (Phase 4)", href: null, show: can.network },
+    { done: (net?.routers ?? 0) - (net?.routersSimulated ?? 0) > 0, label: "Install the FibrePulse Connector for MikroTik", href: "/network/connectors", show: can.network },
   ].filter((s) => s.show);
   const setupDone = setup.every((s) => s.done);
 
@@ -135,10 +137,23 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               href="/network"
             />
           ) : null}
-          {can.network ? (
-            <KpiCard label="Online / offline customers" value="—" hint="Live once the MikroTik connector is installed (Phase 4)" />
+          {live ? (
+            <KpiCard
+              label="Online / offline customers"
+              value={live.routers ? `${live.customersOnline} / ${live.customersOffline}` : "—"}
+              hint={live.routers ? `Of ${plural(live.activeCustomers, "customer")} with an active package${live.simulatedSessions ? " · includes simulated sessions" : ""}` : "Shown once a router reports through the connector"}
+              badge={live.simulatedSessions ? <DataSourceBadge source="simulated" /> : undefined}
+              href="/network"
+            />
           ) : null}
-          {can.network ? <KpiCard label="Network uptime" value="—" hint="Measured by the connector (Phase 4)" /> : null}
+          {availability ? (
+            <KpiCard
+              label="Network uptime, 24 h"
+              value={availability.real !== null ? `${availability.real}%` : "—"}
+              tone={availability.real !== null && availability.real < 99 ? "warning" : undefined}
+              hint={availability.real !== null ? "Share of connector reads where routers answered" : availability.simulated !== null ? `Simulated routers only (${availability.simulated}%), not counted` : "No router readings in the last 24 hours"}
+            />
+          ) : null}
           {can.alerts && net ? (
             <KpiCard
               label="Open incidents"
@@ -242,8 +257,19 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           {can.network ? (
             <Card>
               <CardHeader><CardTitle>Network availability</CardTitle><CardDescription>Router uptime and reachability</CardDescription></CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                Availability is measured from real router data once the FibrePulse Connector is installed (Phase 4). No figure is shown until then.
+              <CardContent className="grid gap-2 text-sm">
+                {live && live.routers ? (
+                  <>
+                    <p><span className="tabular font-semibold">{live.online}</span> of {plural(live.routers, "router")} online now · {live.offline} offline · {live.unknown} not reporting</p>
+                    <p className="text-muted-foreground">
+                      {availability?.real !== null && availability?.real !== undefined ? `${availability.real}% of reads answered in the last 24 hours.` : "No real router readings in the last 24 hours."}
+                      {live.simulatedRouters ? ` ${plural(live.simulatedRouters, "simulated router")} excluded from this figure.` : ""}
+                    </p>
+                    <Link className="text-primary hover:underline" href="/network">Open network monitoring</Link>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground">No routers yet. Install the FibrePulse Connector and add your MikroTik routers to see availability. No figure is shown until real readings arrive.</p>
+                )}
               </CardContent>
             </Card>
           ) : null}
