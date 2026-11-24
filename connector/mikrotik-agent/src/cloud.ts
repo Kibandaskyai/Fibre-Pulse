@@ -39,6 +39,8 @@ export type RadiusEntry = {
   duration_seconds?: number | null;
   /** Hotspot: the one device (MAC) the code works on, once known. */
   mac?: string | null;
+  /** Limited plans: data left in bytes (null = no cap). */
+  data_left_bytes?: number | null;
 };
 
 export type SyncResponse = {

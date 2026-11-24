@@ -7,7 +7,7 @@ import { assertPermission, AuthorizationError } from "@/lib/auth/guards";
 import type { Permission } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { fieldErrorsOf, type ActionResult } from "@/lib/validation/common";
-import { cancelCodeSchema, compensateSchema, freeCodeSchema, hotspotPlanSchema, sellCodeSchema, serviceSettingsSchema } from "@/lib/validation/hotspot";
+import { cancelCodeSchema, compensateSchema, resendCodeSchema, freeCodeSchema, hotspotPlanSchema, sellCodeSchema, serviceSettingsSchema } from "@/lib/validation/hotspot";
 import * as hotspot from "./service";
 
 async function guarded<T = undefined>(permissions: Permission[], run: (tenantId: string) => Promise<ActionResult<T>>): Promise<ActionResult<T>> {
@@ -83,6 +83,17 @@ export async function cancelCodeAction(_prev: ActionResult | null, formData: For
   });
 }
 
+export async function resendCodeAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  return guarded(["subscriptions:edit"], async () => {
+    const parsed = resendCodeSchema.safeParse(Object.fromEntries(formData));
+    if (!parsed.success) return { ok: false, message: "Check the phone number.", fieldErrors: fieldErrorsOf(parsed.error) };
+    const res = await hotspot.resendCode(await createClient(), parsed.data.id, parsed.data.phone);
+    if (!res.ok) return res;
+    revalidatePath("/hotspot/codes");
+    return { ok: true, message: "The code is on its way by SMS." };
+  });
+}
+
 export async function compensateAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   return guarded(["subscriptions:suspend"], async (tenantId) => {
     const parsed = compensateSchema.safeParse(Object.fromEntries(formData));
@@ -102,6 +113,7 @@ export async function saveServiceSettingsAction(_prev: ActionResult | null, form
       upstreamProvider: formData.get("upstreamProvider") ?? "",
       upstreamPhone: formData.get("upstreamPhone") ?? "",
       upstreamCheckTarget: formData.get("upstreamCheckTarget") ?? "",
+      hotspotClockStart: formData.get("hotspotClockStart") ?? "payment",
     });
     if (!parsed.success) return { ok: false, message: "Check the form.", fieldErrors: fieldErrorsOf(parsed.error) };
     const res = await hotspot.saveServiceSettings(await createClient(), tenantId, parsed.data);

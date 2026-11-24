@@ -93,7 +93,8 @@ create or replace function public.save_service_settings(
   p_paybill text,
   p_upstream_provider text,
   p_upstream_phone text,
-  p_upstream_check_target text
+  p_upstream_check_target text,
+  p_hotspot_clock_start text default null
 )
 returns void
 language plpgsql
@@ -116,6 +117,9 @@ begin
   if coalesce(trim(p_upstream_check_target), '') <> '' and private.try_inet(p_upstream_check_target) is null then
     raise exception 'The check address must be an IP address, for example 8.8.8.8.' using errcode = 'check_violation';
   end if;
+  if p_hotspot_clock_start is not null and p_hotspot_clock_start not in ('payment', 'first_login') then
+    raise exception 'Choose when hotspot time starts.' using errcode = 'check_violation';
+  end if;
   perform private.set_audit_reason('Service settings updated');
   update public.tenants
   set settings = settings || jsonb_build_object(
@@ -123,7 +127,8 @@ begin
         'mpesa_paybill', nullif(trim(p_paybill), ''),
         'upstream_provider', coalesce(nullif(left(trim(p_upstream_provider), 60), ''), 'Safaricom'),
         'upstream_support_phone', nullif(trim(p_upstream_phone), ''),
-        'upstream_check_target', coalesce(host(private.try_inet(p_upstream_check_target)), '8.8.8.8'))
+        'upstream_check_target', coalesce(host(private.try_inet(p_upstream_check_target)), '8.8.8.8'),
+        'hotspot_clock_start', coalesce(p_hotspot_clock_start, settings ->> 'hotspot_clock_start', 'payment'))
   where id = p_tenant;
 end;
 $$;
@@ -143,6 +148,9 @@ create table public.hotspot_plans (
   -- The ISP's own label, as in their current system ("Limited"/"Unlimited").
   usage_type       text not null default 'unlimited' check (usage_type in ('limited', 'unlimited')),
   -- Optional data cap in MB. Null = no cap.
+  -- Limited plans: the data the buyer gets for the period. They are cut off
+  -- when it runs out or the time ends, whichever comes first. Unlimited
+  -- plans have no cap. Null on a Limited plan means "cap not set yet".
   data_limit_mb    integer check (data_limit_mb is null or data_limit_mb > 0),
   -- MikroTik hotspot user profile or RADIUS group, if the router uses one.
   network_profile  text check (network_profile is null or char_length(network_profile) <= 64),
@@ -151,7 +159,8 @@ create table public.hotspot_plans (
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now(),
   unique (tenant_id, id),
-  unique (tenant_id, name)
+  unique (tenant_id, name),
+  check (usage_type = 'limited' or data_limit_mb is null)
 );
 create trigger hotspot_plans_updated_at before update on public.hotspot_plans
   for each row execute function private.set_updated_at();
@@ -186,6 +195,8 @@ create table public.hotspot_vouchers (
   duration_minutes    integer not null check (duration_minutes > 0),
   download_mbps       numeric(8, 2) not null,
   upload_mbps         numeric(8, 2) not null,
+  -- Data cap copied from a Limited plan at purchase (null = no cap).
+  data_limit_mb       integer check (data_limit_mb is null or data_limit_mb > 0),
   source              public.hotspot_voucher_source not null,
   status              public.hotspot_voucher_status not null,
   phone               text check (phone is null or phone ~ '^\+254[0-9]{9}$'),
@@ -206,7 +217,8 @@ create table public.hotspot_vouchers (
   updated_at          timestamptz not null default now(),
   unique (tenant_id, id),
   unique (tenant_id, code),
-  check (status not in ('active', 'expired') or activated_at is not null),
+  -- A code can expire unused when its time runs from payment.
+  check (status <> 'active' or activated_at is not null),
   check (status <> 'active' or expires_at is not null),
   check (expires_at is null or activated_at is null or expires_at > activated_at),
   check (source <> 'complimentary' or (price = 0 and reason is not null)),
@@ -225,6 +237,74 @@ create index hotspot_vouchers_changed_idx on public.hotspot_vouchers (tenant_id,
 create index hotspot_vouchers_plan_idx on public.hotspot_vouchers (tenant_id, plan_id);
 create trigger hotspot_vouchers_updated_at before update on public.hotspot_vouchers
   for each row execute function private.set_updated_at();
+
+-- Every way of issuing a code copies the plan's data cap, so later plan edits
+-- never change what someone bought.
+create or replace function private.voucher_copy_cap()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.data_limit_mb is null then
+    select case when p.usage_type = 'limited' then p.data_limit_mb end into new.data_limit_mb
+    from public.hotspot_plans p where p.id = new.plan_id;
+  end if;
+  return new;
+end;
+$$;
+create trigger hotspot_vouchers_copy_cap before insert on public.hotspot_vouchers
+  for each row execute function private.voucher_copy_cap();
+
+-- When the clock starts (tenants.settings.hotspot_clock_start):
+--   'payment' (default, the pilot's choice on 24 Nov 2026): time runs from the
+--     moment the code is paid for (or given free), used or not.
+--   'first_login': time runs from the first login; a paid code that is never
+--     used never expires.
+create or replace function private.hotspot_clock_start(p_tenant uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case when t.settings ->> 'hotspot_clock_start' = 'first_login' then 'first_login' else 'payment' end
+  from public.tenants t where t.id = p_tenant
+$$;
+
+create or replace function private.voucher_start_clock()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.status = 'unused' and new.expires_at is null
+     and (tg_op = 'INSERT' or old.status is distinct from 'unused')
+     and private.hotspot_clock_start(new.tenant_id) = 'payment' then
+    new.expires_at := now() + make_interval(mins => new.duration_minutes);
+  end if;
+  return new;
+end;
+$$;
+create trigger hotspot_vouchers_start_clock before insert or update of status on public.hotspot_vouchers
+  for each row execute function private.voucher_start_clock();
+
+-- Data used by a code, kept apart from the code row so that usage updates
+-- every minute do not count as a change to the code (which would make the
+-- connector download the whole access list each time).
+create table public.hotspot_voucher_usage (
+  voucher_id   uuid primary key references public.hotspot_vouchers (id) on delete cascade,
+  tenant_id    uuid not null references public.tenants (id) on delete restrict,
+  closed_bytes bigint not null default 0 check (closed_bytes >= 0),  -- from sessions that have ended
+  used_bytes   bigint not null default 0 check (used_bytes >= 0),    -- closed plus the session open now
+  updated_at   timestamptz not null default now()
+);
+create index hotspot_voucher_usage_tenant_idx on public.hotspot_voucher_usage (tenant_id, updated_at desc);
+alter table public.hotspot_voucher_usage enable row level security;
+create policy hotspot_voucher_usage_select on public.hotspot_voucher_usage for select to authenticated
+  using (private.has_permission(tenant_id, 'subscriptions:view'));
+revoke all on public.hotspot_voucher_usage from anon;
 -- Audit what people do (sales, free codes, cancellations, compensation);
 -- not the thousands of automatic purchases and expiries a day.
 create trigger hotspot_vouchers_audit after insert or update on public.hotspot_vouchers
@@ -333,13 +413,13 @@ begin
   if p_plan is null then
     insert into public.hotspot_plans (tenant_id, name, duration_minutes, price, download_mbps, upload_mbps, usage_type, data_limit_mb, network_profile, sort_order)
     values (p_tenant, trim(p_name), p_duration_minutes, p_price, p_download_mbps, coalesce(p_upload_mbps, p_download_mbps),
-            coalesce(p_usage_type, 'unlimited'), p_data_limit_mb, nullif(trim(p_network_profile), ''), coalesce(p_sort_order, 0))
+            coalesce(p_usage_type, 'unlimited'), case when p_usage_type = 'limited' then p_data_limit_mb end, nullif(trim(p_network_profile), ''), coalesce(p_sort_order, 0))
     returning id into v_id;
   else
     update public.hotspot_plans
     set name = trim(p_name), duration_minutes = p_duration_minutes, price = p_price, download_mbps = p_download_mbps,
         upload_mbps = coalesce(p_upload_mbps, p_download_mbps), usage_type = coalesce(p_usage_type, 'unlimited'),
-        data_limit_mb = p_data_limit_mb, network_profile = nullif(trim(p_network_profile), ''), sort_order = coalesce(p_sort_order, 0)
+        data_limit_mb = case when p_usage_type = 'limited' then p_data_limit_mb end, network_profile = nullif(trim(p_network_profile), ''), sort_order = coalesce(p_sort_order, 0)
     where id = p_plan and tenant_id = p_tenant
     returning id into v_id;
     if v_id is null then
@@ -382,6 +462,9 @@ declare
   v_payment uuid;
   v_id uuid;
   v_code text;
+  v_ref text := upper(trim(coalesce(p_mpesa_reference, '')));
+  v_existing public.payments;
+  v_other text;
 begin
   perform private.require_permission(p_tenant, 'subscriptions:edit');
   perform private.require_permission(p_tenant, 'payments:record');
@@ -395,12 +478,37 @@ begin
   if upper(trim(coalesce(p_mpesa_reference, ''))) !~ '^[A-Z0-9]{8,12}$' then
     raise exception 'Enter the M-Pesa transaction code, for example SKL4H7XY2Q.' using errcode = 'check_violation';
   end if;
-  perform private.set_audit_reason('Hotspot code sold for M-Pesa ' || upper(trim(p_mpesa_reference)));
-  insert into public.payments (tenant_id, method, provider_reference, amount, transaction_at, status, verification_status,
-                               revenue_category, data_source, payer_phone, description, recorded_by)
-  values (p_tenant, 'mpesa', upper(trim(p_mpesa_reference)), v_plan.price, now(), 'successful', 'unverified',
-          'subscription', 'manual', v_phone, 'Hotspot ' || v_plan.name, auth.uid())
-  returning id into v_payment;
+  perform private.set_audit_reason('Hotspot code issued by hand for M-Pesa ' || v_ref);
+  -- One code per M-Pesa transaction. If the payment already reached
+  -- FibrePulse (for example a paybill payment no plan matched, or one that
+  -- came in while codes could not be sent), the code is tied to it; if it
+  -- already has a code, the owner is told which one to resend.
+  select * into v_existing from public.payments where tenant_id = p_tenant and method = 'mpesa' and provider_reference = v_ref for update;
+  if v_existing.id is not null then
+    select v.code into v_other from public.hotspot_vouchers v where v.payment_id = v_existing.id and v.status <> 'payment_failed';
+    if v_other is not null then
+      raise exception 'M-Pesa % already has WiFi code %. Resend it from the Codes page instead.', v_ref, v_other using errcode = 'unique_violation';
+    end if;
+    if v_existing.customer_id is not null then
+      raise exception 'M-Pesa % is a monthly customer''s payment, not a hotspot purchase.', v_ref using errcode = 'check_violation';
+    end if;
+    if v_existing.status <> 'successful' or v_existing.reversal_of is not null then
+      raise exception 'M-Pesa % is not a successful payment.', v_ref using errcode = 'check_violation';
+    end if;
+    if v_existing.amount < v_plan.price then
+      raise exception 'M-Pesa % was Ksh %; the % plan costs Ksh %.', v_ref, v_existing.amount, v_plan.name, v_plan.price using errcode = 'check_violation';
+    end if;
+    -- A payment that only failed a WiFi-page purchase is released first.
+    update public.hotspot_vouchers set payment_id = null where payment_id = v_existing.id and status = 'payment_failed';
+    v_payment := v_existing.id;
+    v_phone := coalesce(v_phone, v_existing.payer_phone);
+  else
+    insert into public.payments (tenant_id, method, provider_reference, amount, transaction_at, status, verification_status,
+                                 revenue_category, data_source, payer_phone, description, recorded_by)
+    values (p_tenant, 'mpesa', v_ref, v_plan.price, now(), 'successful', 'unverified',
+            'subscription', 'manual', v_phone, 'Hotspot ' || v_plan.name, auth.uid())
+    returning id into v_payment;
+  end if;
   v_code := private.new_voucher_code(p_tenant);
   insert into public.hotspot_vouchers (tenant_id, code, plan_id, plan_name, price, duration_minutes, download_mbps, upload_mbps,
                                        source, status, phone, payment_id, data_source, created_by)
@@ -516,7 +624,7 @@ begin
   perform private.set_audit_reason('Outage compensation +' || p_minutes || ' min: ' || trim(p_reason));
   update public.hotspot_vouchers
   set expires_at = expires_at + make_interval(mins => p_minutes)
-  where tenant_id = p_tenant and status = 'active' and expires_at > now();
+  where tenant_id = p_tenant and status in ('active', 'unused') and expires_at > now();
   get diagnostics v_count = row_count;
   insert into public.audit_logs (tenant_id, actor_id, action, entity_type, entity_id, after_data, reason)
   values (p_tenant, auth.uid(), 'compensate', 'hotspot_vouchers', null,
@@ -564,7 +672,42 @@ begin
   insert into public.customer_sms_outbox (tenant_id, voucher_id, phone, body)
   values (v.tenant_id, v.id, v.phone,
           left(left(v_isp, 30) || ': your WiFi code is ' || v.code || ' for ' || v.plan_name ||
-               '. Works on one device. Time starts when you log in.', 160));
+               '. Works on one device. ' ||
+               case when v.expires_at is not null then 'Valid until ' || to_char(v.expires_at at time zone 'Africa/Nairobi', 'DD Mon HH24:MI') || '.'
+                    else 'Time starts when you log in.' end, 160));
+end;
+$$;
+
+-- The owner (re)sends a code by SMS, optionally to a new number.
+create or replace function public.resend_hotspot_code_sms(p_voucher uuid, p_phone text default null)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v public.hotspot_vouchers;
+  v_phone text := private.kenyan_phone(p_phone);
+begin
+  select * into v from public.hotspot_vouchers where id = p_voucher;
+  if v.id is null then
+    raise exception 'Code not found.' using errcode = 'no_data_found';
+  end if;
+  perform private.require_permission(v.tenant_id, 'subscriptions:edit');
+  if coalesce(trim(p_phone), '') <> '' and v_phone is null then
+    raise exception 'Enter a Kenyan mobile number, for example 0712 345 678.' using errcode = 'check_violation';
+  end if;
+  if v.status not in ('unused', 'active') then
+    raise exception 'Only a code that still has time can be sent.' using errcode = 'check_violation';
+  end if;
+  if coalesce(v_phone, v.phone) is null then
+    raise exception 'Enter the customer''s phone number.' using errcode = 'check_violation';
+  end if;
+  if v_phone is not null and v_phone is distinct from v.phone then
+    perform private.set_audit_reason('Hotspot code sent to a new number');
+    update public.hotspot_vouchers set phone = v_phone where id = v.id;
+  end if;
+  perform private.queue_code_sms(v.id);
 end;
 $$;
 
@@ -629,10 +772,11 @@ begin
     'paybill', t.settings ->> 'mpesa_paybill',
     'support_phone', t.contact_phone,
     'demo', coalesce((t.settings ->> 'portal_demo')::boolean, false),
+    'clock_start', private.hotspot_clock_start(t.id),
     'network_ok', (private.network_state(t.id) ->> 'state') not in ('upstream_down', 'site_unreachable'),
     'plans', coalesce((
       select jsonb_agg(jsonb_build_object('id', p.id, 'name', p.name, 'price', p.price, 'duration_minutes', p.duration_minutes,
-                                          'download_mbps', p.download_mbps, 'usage_type', p.usage_type)
+                                          'download_mbps', p.download_mbps, 'usage_type', p.usage_type, 'data_limit_mb', p.data_limit_mb)
                        order by p.sort_order, p.duration_minutes, p.price)
       from public.hotspot_plans p where p.tenant_id = t.id and p.status = 'active'), '[]'::jsonb)
   );
@@ -764,6 +908,7 @@ as $$
 declare
   v public.hotspot_vouchers;
   v_payment uuid;
+  v_other text;
 begin
   select * into v from public.hotspot_vouchers where id = p_voucher for update;
   if v.id is null then
@@ -782,6 +927,17 @@ begin
     raise exception 'A successful M-Pesa result needs the receipt number and amount.' using errcode = 'check_violation';
   end if;
   perform private.set_audit_reason('M-Pesa confirmed hotspot purchase');
+  -- The owner may already have issued a code by hand for this payment (for
+  -- example while FibrePulse could not hear from M-Pesa). Never a second code.
+  select p.id into v_payment from public.payments p
+  where p.tenant_id = v.tenant_id and p.method = 'mpesa' and p.provider_reference = upper(trim(p_receipt));
+  if v_payment is not null then
+    select x.code into v_other from public.hotspot_vouchers x where x.payment_id = v_payment and x.status <> 'payment_failed';
+    update public.hotspot_vouchers set status = 'payment_failed', ended_at = now(),
+      end_reason = 'Paid, but code ' || coalesce(v_other, '?') || ' was already issued for M-Pesa ' || upper(trim(p_receipt))
+    where id = v.id;
+    return jsonb_build_object('status', 'payment_failed', 'reason', 'already_issued', 'code', v_other);
+  end if;
   insert into public.payments (tenant_id, method, provider_reference, amount, transaction_at, status, verification_status,
                                verified_at, revenue_category, data_source, payer_phone, description, provider_payload)
   values (v.tenant_id, 'mpesa', upper(trim(p_receipt)), p_amount, coalesce(p_transaction_at, now()), 'successful', 'verified',
@@ -877,6 +1033,11 @@ begin
   -- Unpaid prompts are dropped after 10 minutes.
   update public.hotspot_vouchers set status = 'payment_failed', ended_at = now(), end_reason = 'No M-Pesa confirmation within 10 minutes'
   where status = 'awaiting_payment' and created_at < now() - interval '10 minutes';
+
+  -- Clock from payment: a code nobody used still runs out (never with
+  -- 'first_login', where an unused code has no end time).
+  update public.hotspot_vouchers set status = 'expired', ended_at = expires_at, end_reason = 'Time ended before the code was used'
+  where status = 'unused' and expires_at <= now();
 
   v_count := 0;
   for v in
@@ -1099,8 +1260,11 @@ as $$
                'upload_mbps', v.upload_mbps,
                'expires_at', v.expires_at,
                'duration_seconds', v.duration_minutes * 60,
-               'mac', v.mac_address::text)
+               'mac', v.mac_address::text,
+               'data_left_bytes', case when v.data_limit_mb is not null
+                 then greatest(v.data_limit_mb::bigint * 1048576 - coalesce(u.used_bytes, 0), 0) end)
       from public.hotspot_vouchers v
+      left join public.hotspot_voucher_usage u on u.voucher_id = v.id
       where v.tenant_id = p_tenant and v.status in ('unused', 'active') and v.data_source <> 'simulated'
         and (v.expires_at is null or v.expires_at > now())
     ) x), '[]'::jsonb)
@@ -1119,7 +1283,9 @@ as $$
     (select max(updated_at) from public.hotspot_vouchers where tenant_id = p_tenant),
     (select max(updated_at) from public.subscriptions where tenant_id = p_tenant),
     (select max(updated_at) from public.customers where tenant_id = p_tenant),
-    (select count(*) from public.hotspot_vouchers where tenant_id = p_tenant and status in ('unused', 'active'))))
+    (select count(*) from public.hotspot_vouchers where tenant_id = p_tenant and status in ('unused', 'active')),
+    -- Data left on Limited codes, refreshed at most every 5 minutes.
+    (select date_bin('5 minutes', max(updated_at), timestamptz '2000-01-01') from public.hotspot_voucher_usage where tenant_id = p_tenant)))
 $$;
 
 drop function if exists public.connector_sync(text, text, timestamptz, text);
@@ -1227,6 +1393,7 @@ declare
   v_tx bigint;
   v_active int;
   v_hs int;
+  v_capped uuid;
   v_up_ok boolean;
   v_provider text;
   v_phone text;
@@ -1412,8 +1579,18 @@ begin
       where ns.router_id = v_router.id and ns.ended_at is null and ns.session_type = 'pppoe'
         and ns.customer_id = c.id and c.router_id is null;
 
-      update public.network_sessions set ended_at = greatest(v_at, started_at)
-      where router_id = v_router.id and ended_at is null and last_seen_at < v_at;
+      with closed as (
+        update public.network_sessions set ended_at = greatest(v_at, started_at)
+        where router_id = v_router.id and ended_at is null and last_seen_at < v_at
+        returning session_type, username, bytes_in + bytes_out as bytes
+      ), per_code as (
+        select upper(username) as code, sum(bytes) as bytes from closed where session_type = 'hotspot' group by 1
+      )
+      update public.hotspot_voucher_usage u
+      set closed_bytes = u.closed_bytes + pc.bytes, used_bytes = u.closed_bytes + pc.bytes, updated_at = now()
+      from per_code pc
+      join public.hotspot_vouchers v on v.tenant_id = v_router.tenant_id and v.code = pc.code and v.status = 'active'
+      where u.voucher_id = v.id;
 
       -- A code seen online for the first time: start its clock on that device.
       create temporary table if not exists pg_temp.fp_activated (id uuid, mac macaddr, phone text, price numeric) on commit drop;
@@ -1421,11 +1598,12 @@ begin
       with act as (
         update public.hotspot_vouchers v
         set status = 'active', activated_at = least(v_at - make_interval(secs => inc.uptime), now()),
-            expires_at = least(v_at - make_interval(secs => inc.uptime), now()) + make_interval(mins => v.duration_minutes),
+            expires_at = coalesce(v.expires_at, least(v_at - make_interval(secs => inc.uptime), now()) + make_interval(mins => v.duration_minutes)),
             mac_address = coalesce(v.mac_address, private.try_macaddr(inc.caller_id)), router_id = v_router.id
         from pg_temp.fp_incoming inc
         where inc.session_type = 'hotspot'
           and v.tenant_id = v_router.tenant_id and v.code = upper(inc.username) and v.status = 'unused'
+          and (v.expires_at is null or v.expires_at > greatest(v_at - make_interval(secs => inc.uptime), v.created_at) + interval '1 second')
           and (v.data_source = 'simulated') = v_simulated
         returning v.id, v.mac_address, v.phone, v.price
       )
@@ -1443,6 +1621,31 @@ begin
         join public.hotspot_devices d on d.tenant_id = v_router.tenant_id and d.mac_address = a.mac
         where v.id = a.id;
       end if;
+
+      -- Data used on Limited codes: ended sessions plus the one open now. A code
+      -- whose cap is used up ends now, like time running out.
+      insert into public.hotspot_voucher_usage as u (voucher_id, tenant_id, used_bytes)
+      select v.id, v.tenant_id, coalesce(inc.bytes_in, 0) + coalesce(inc.bytes_out, 0)
+      from pg_temp.fp_incoming inc
+      join public.hotspot_vouchers v on v.tenant_id = v_router.tenant_id and v.code = upper(inc.username)
+      where inc.session_type = 'hotspot' and v.status = 'active' and v.data_limit_mb is not null
+        and (v.data_source = 'simulated') = v_simulated
+      on conflict (voucher_id) do update
+      set used_bytes = u.closed_bytes + excluded.used_bytes, updated_at = now()
+      where u.used_bytes is distinct from u.closed_bytes + excluded.used_bytes;
+
+      perform private.set_audit_reason('Hotspot data used up');
+      for v_capped in
+        update public.hotspot_vouchers v
+        set status = 'expired', ended_at = now(), end_reason = 'Data used up'
+        from public.hotspot_voucher_usage u, pg_temp.fp_incoming inc
+        where u.voucher_id = v.id and inc.session_type = 'hotspot' and v.code = upper(inc.username)
+          and v.tenant_id = v_router.tenant_id and v.status = 'active' and v.data_limit_mb is not null
+          and u.used_bytes >= v.data_limit_mb::bigint * 1048576
+        returning v.id
+      loop
+        perform private.queue_hotspot_disconnect(v_capped, 'Hotspot data used up');
+      end loop;
 
       select count(*), count(*) filter (where session_type = 'hotspot') into v_active, v_hs
       from public.network_sessions where router_id = v_router.id and ended_at is null;
@@ -1655,22 +1858,24 @@ revoke all on function private.expire_hotspot_vouchers() from public, anon, auth
 revoke all on function private.network_state(uuid) from public, anon, authenticated;
 revoke all on function private.radius_version(uuid, text, boolean) from public, anon, authenticated;
 
-revoke all on function public.save_service_settings(uuid, text[], text, text, text, text) from public, anon;
+revoke all on function public.save_service_settings(uuid, text[], text, text, text, text, text) from public, anon;
 revoke all on function public.save_hotspot_plan(uuid, uuid, text, integer, numeric, numeric, numeric, text, integer, text, integer) from public, anon;
 revoke all on function public.set_hotspot_plan_status(uuid, public.package_status) from public, anon;
 revoke all on function public.sell_hotspot_voucher(uuid, uuid, text, text) from public, anon;
 revoke all on function public.give_free_hotspot_voucher(uuid, uuid, text, text) from public, anon;
 revoke all on function public.cancel_hotspot_voucher(uuid, text) from public, anon;
+revoke all on function public.resend_hotspot_code_sms(uuid, text) from public, anon;
 revoke all on function public.compensate_hotspot_outage(uuid, integer, text) from public, anon;
 revoke all on function public.network_status(uuid) from public, anon;
 revoke all on function public.hotspot_summary(uuid) from public, anon;
 revoke all on function public.revenue_by_service(uuid, date, date, text) from public, anon;
-grant execute on function public.save_service_settings(uuid, text[], text, text, text, text) to authenticated;
+grant execute on function public.save_service_settings(uuid, text[], text, text, text, text, text) to authenticated;
 grant execute on function public.save_hotspot_plan(uuid, uuid, text, integer, numeric, numeric, numeric, text, integer, text, integer) to authenticated;
 grant execute on function public.set_hotspot_plan_status(uuid, public.package_status) to authenticated;
 grant execute on function public.sell_hotspot_voucher(uuid, uuid, text, text) to authenticated;
 grant execute on function public.give_free_hotspot_voucher(uuid, uuid, text, text) to authenticated;
 grant execute on function public.cancel_hotspot_voucher(uuid, text) to authenticated;
+grant execute on function public.resend_hotspot_code_sms(uuid, text) to authenticated;
 grant execute on function public.compensate_hotspot_outage(uuid, integer, text) to authenticated;
 grant execute on function public.network_status(uuid) to authenticated;
 grant execute on function public.hotspot_summary(uuid) to authenticated;

@@ -22,7 +22,12 @@
  *   "control:Cleartext-Password": "<code>"   (lets RADIUS check PAP or CHAP)
  *   "reply:Session-Timeout": <seconds left>  (the router cuts them off at 0)
  * A code works on ONE device: the first device (MAC) that logs in owns it,
- * and any other device is refused. The clock starts at that first login.
+ * and any other device is refused. The clock starts at payment (FibrePulse
+ * sends the end time) or, for ISPs that choose it, at that first login.
+ * Limited plans also get
+ *   "reply:Mikrotik-Total-Limit" / "reply:Mikrotik-Total-Limit-Gigawords"
+ * (data left, upload plus download), so the router cuts them off when the
+ * data runs out; FibrePulse also ends the code when its count reaches the cap.
  *
  * The list comes from FibrePulse (only when it changed) and is kept on disk
  * together with first-login times and devices learned here, so people keep
@@ -135,6 +140,8 @@ export class RadiusPolicy {
     }
     const left = Math.floor((ends - now) / 1000);
     if (!(left > 0)) return { status: 401, body: { "reply:Reply-Message": "Your time has ended. Buy a new plan to continue." } };
+    const dataLeft = typeof e.data_left_bytes === "number" ? Math.max(0, Math.floor(e.data_left_bytes)) : null;
+    if (dataLeft !== null && dataLeft <= 0) return { status: 401, body: { "reply:Reply-Message": "Your data is used up. Buy a new plan to continue." } };
     if (!owner && mac && used && !used.mac) {
       used.mac = mac;
       this.persist();
@@ -146,6 +153,9 @@ export class RadiusPolicy {
         "control:Cleartext-Password": e.username,
         "reply:Session-Timeout": left,
         ...(limit ? { "reply:Mikrotik-Rate-Limit": limit } : {}),
+        ...(dataLeft !== null
+          ? { "reply:Mikrotik-Total-Limit": dataLeft % 2 ** 32, "reply:Mikrotik-Total-Limit-Gigawords": Math.floor(dataLeft / 2 ** 32) }
+          : {}),
       },
     };
   }

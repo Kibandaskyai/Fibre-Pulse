@@ -12,10 +12,10 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
 import { VoucherSourceText, VoucherStatusBadge } from "@/components/hotspot/badges";
 import { requirePagePermission } from "@/lib/auth/guards";
-import { formatDateTime, formatKsh, formatPlanDuration, timeLeft } from "@/lib/format";
+import { formatData, formatDateTime, formatKsh, formatPlanDuration, timeLeft } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { listCodes, PAGE_SIZE, VOUCHER_STATUS_LABELS } from "@/modules/hotspot/service";
-import { CancelCodeForm } from "../forms";
+import { CancelCodeForm, ResendCodeForm } from "../forms";
 
 export const metadata: Metadata = { title: "Hotspot codes" };
 
@@ -28,6 +28,7 @@ export default async function HotspotCodesPage({ searchParams }: { searchParams:
   const status = STATUSES.includes(sp.status as (typeof STATUSES)[number]) ? (sp.status as string) : "";
   const page = Math.max(1, Number(sp.page) || 1);
   const canCancel = ctx.active.permissions.has("subscriptions:suspend");
+  const canResend = ctx.active.permissions.has("subscriptions:edit");
   const result = await listCodes(await createClient(), ctx.active.tenantId, { q, status, page });
 
   return (
@@ -73,6 +74,12 @@ export default async function HotspotCodesPage({ searchParams }: { searchParams:
                     <TableCell>
                       <span className="tabular font-semibold tracking-widest">{c.code}</span>
                       {c.data_source === "simulated" ? <div className="mt-1"><DataSourceBadge source="simulated" /></div> : null}
+                      {canResend && (c.status === "unused" || c.status === "active") ? (
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-xs text-muted-foreground">Send by SMS…</summary>
+                          <div className="mt-2 min-w-64"><ResendCodeForm id={c.id} phone={c.phone} /></div>
+                        </details>
+                      ) : null}
                       {canCancel && (c.status === "unused" || c.status === "active") ? (
                         <details className="mt-2">
                           <summary className="cursor-pointer text-xs text-muted-foreground">Cancel…</summary>
@@ -82,7 +89,10 @@ export default async function HotspotCodesPage({ searchParams }: { searchParams:
                     </TableCell>
                     <TableCell>
                       {c.plan_name}
-                      <p className="text-xs text-muted-foreground">{formatPlanDuration(c.duration_minutes)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatPlanDuration(c.duration_minutes)}
+                        {c.data_limit_mb ? ` · ${formatData(c.used_mb)} of ${formatData(c.data_limit_mb)} used` : ""}
+                      </p>
                     </TableCell>
                     <TableCell className="tabular text-right">
                       {c.source === "complimentary" ? "Free" : formatKsh(c.price)}
@@ -91,7 +101,7 @@ export default async function HotspotCodesPage({ searchParams }: { searchParams:
                     <TableCell>
                       <VoucherStatusBadge status={c.status} />
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {c.status === "active" ? `${timeLeft(c.expires_at)} left` : c.end_reason ?? c.reason ?? ""}
+                        {c.status === "active" || (c.status === "unused" && c.expires_at) ? `${timeLeft(c.expires_at)} left` : c.end_reason ?? c.reason ?? ""}
                       </p>
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-xs">

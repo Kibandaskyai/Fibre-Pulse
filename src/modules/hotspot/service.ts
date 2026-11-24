@@ -33,6 +33,9 @@ export type HotspotCode = {
   plan_name: string;
   price: number;
   duration_minutes: number;
+  /** Limited plans: data for the period, and data used so far (MB). */
+  data_limit_mb: number | null;
+  used_mb: number;
   source: VoucherSource;
   status: VoucherStatus;
   phone: string | null;
@@ -83,7 +86,7 @@ export type ServiceRow = { bucket: string; hotspot: number; monthly: number; unl
 
 const PLAN_COLUMNS = "id, name, duration_minutes, price, download_mbps, upload_mbps, usage_type, data_limit_mb, network_profile, status, sort_order";
 const CODE_COLUMNS =
-  "id, code, plan_name, price, duration_minutes, source, status, phone, mac_address, activated_at, expires_at, ended_at, end_reason, reason, data_source, created_at";
+  "id, code, plan_name, price, duration_minutes, data_limit_mb, source, status, phone, mac_address, activated_at, expires_at, ended_at, end_reason, reason, data_source, created_at, hotspot_voucher_usage(used_bytes)";
 
 const num = (v: unknown) => Number(v ?? 0);
 
@@ -160,7 +163,11 @@ export async function listCodes(
   else q = q.neq("status", "awaiting_payment");
   const { data, error, count } = await q.order("created_at", { ascending: false }).range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
   if (error) return { ok: false, message: friendlyDbError(error) };
-  return { ok: true, data: { rows: (data ?? []).map((r) => ({ ...r, price: num(r.price) })) as HotspotCode[], total: count ?? 0 } };
+  const rows = (data ?? []).map(({ hotspot_voucher_usage: u, ...r }) => {
+    const usage = (Array.isArray(u) ? u[0] : u) as { used_bytes: number | string } | null | undefined;
+    return { ...r, price: num(r.price), used_mb: num(usage?.used_bytes) / 1048576 };
+  });
+  return { ok: true, data: { rows: rows as HotspotCode[], total: count ?? 0 } };
 }
 
 type Issued = { voucher_id: string; code: string };
@@ -178,6 +185,11 @@ export async function giveFreeCode(db: SupabaseClient, tenantId: string, planId:
   const { data, error } = await db.rpc("give_free_hotspot_voucher", { p_tenant: tenantId, p_plan: planId, p_phone: phone, p_reason: reason });
   if (error) return { ok: false, message: friendlyDbError(error) };
   return { ok: true, data: (data as Issued[])[0] };
+}
+
+export async function resendCode(db: SupabaseClient, id: string, phone: string | null): Promise<Result<null>> {
+  const { error } = await db.rpc("resend_hotspot_code_sms", { p_voucher: id, p_phone: phone });
+  return error ? { ok: false, message: friendlyDbError(error) } : { ok: true, data: null };
 }
 
 export async function cancelCode(db: SupabaseClient, id: string, reason: string): Promise<Result<null>> {
@@ -212,6 +224,8 @@ export type ServiceSettings = {
   upstreamProvider: string;
   upstreamPhone: string | null;
   upstreamCheckTarget: string;
+  /** When a hotspot code's time starts: at payment (default) or at first login. */
+  hotspotClockStart: "payment" | "first_login";
 };
 
 export function readServiceSettings(settings: Record<string, unknown> | null | undefined): ServiceSettings {
@@ -223,6 +237,7 @@ export function readServiceSettings(settings: Record<string, unknown> | null | u
     upstreamProvider: typeof s.upstream_provider === "string" ? s.upstream_provider : "Safaricom",
     upstreamPhone: typeof s.upstream_support_phone === "string" ? s.upstream_support_phone : null,
     upstreamCheckTarget: typeof s.upstream_check_target === "string" ? s.upstream_check_target : "8.8.8.8",
+    hotspotClockStart: s.hotspot_clock_start === "first_login" ? "first_login" : "payment",
   };
 }
 
@@ -234,6 +249,7 @@ export async function saveServiceSettings(db: SupabaseClient, tenantId: string, 
     p_upstream_provider: s.upstreamProvider,
     p_upstream_phone: s.upstreamPhone,
     p_upstream_check_target: s.upstreamCheckTarget,
+    p_hotspot_clock_start: s.hotspotClockStart,
   });
   return error ? { ok: false, message: friendlyDbError(error) } : { ok: true, data: null };
 }

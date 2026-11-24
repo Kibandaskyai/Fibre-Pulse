@@ -172,14 +172,16 @@ describe("selling a code and using it on one device", () => {
     await asUser(null, async (c) => {
       const first = await sync(c);
       const entry = first.radius_access.find((e: { username: string }) => e.username === code);
-      expect(entry).toMatchObject({ kind: "hotspot", allowed: true, duration_seconds: 86400, expires_at: null, mac: null, download_mbps: 10 });
+      // Time runs from payment (the pilot's choice), so RADIUS already has the end time.
+      expect(entry).toMatchObject({ kind: "hotspot", allowed: true, duration_seconds: 86400, mac: null, download_mbps: 10, data_left_bytes: null });
+      expect(entry.expires_at).not.toBeNull();
       const again = await sync(c, first.radius_version);
       expect(again.radius_access).toBeNull();
       expect(again.radius_version).toBe(first.radius_version);
     });
   });
 
-  it("the first time the code is online, its clock starts and it is tied to that device", async () => {
+  it("the first time the code is online it is tied to that device; its time still runs from payment", async () => {
     await commitAs("anon", async (c) => {
       const r = await ingest(c, {
         routers: [reading({ sessions: [{ type: "hotspot", username: code.toLowerCase(), address: "10.5.50.20", caller_id: "AA:BB:CC:00:11:22", uptime_seconds: 120 }] })],
@@ -187,7 +189,7 @@ describe("selling a code and using it on one device", () => {
       expect(r).toEqual({ accepted: 1, rejected: [] });
     });
     const [v] = await q<{ status: string; mac: string; minutes: number; device: string | null; phone: string }>(
-      `select v.status, v.mac_address::text as mac, round(extract(epoch from v.expires_at - v.activated_at) / 60)::int as minutes,
+      `select v.status, v.mac_address::text as mac, round(extract(epoch from v.expires_at - v.created_at) / 60)::int as minutes,
               d.mac_address::text as device, d.last_phone as phone
        from hotspot_vouchers v left join hotspot_devices d on d.id = v.device_id where v.id = $1`,
       [voucher],
@@ -407,6 +409,124 @@ describe("money: hotspot and monthly, by day and month", () => {
       expect(s.plans_unlimited).toBe(1);
       expect(s.sold_today).toBeGreaterThanOrEqual(3);
       expect(s.active_codes).toBeGreaterThanOrEqual(0);
+    });
+  });
+});
+
+describe("Limited plans (data cap) and when time starts", () => {
+  const MB = 1048576;
+  const freeCode = (planId: string) =>
+    asUserCommit(owner, (c) =>
+      c.query(`select * from public.give_free_hotspot_voucher($1, $2, null, 'Testing the data cap')`, [tenant, planId]).then((r) => r.rows[0] as { voucher_id: string; code: string }),
+    );
+
+  it("a Limited plan carries a data cap; an Unlimited plan never does", async () => {
+    await asUserCommit(owner, async (c) => {
+      await c.query(`select public.save_hotspot_plan($1, $2, '3 hours', 180, 15, 10, 10, 'limited', 1024)`, [tenant, plan1h]);
+      await c.query(`select public.save_hotspot_plan($1, $2, 'Monthly unlimited', 43200, 700, 10, 10, 'unlimited', 5000)`, [tenant, planMonth]);
+    });
+    const rows = await q<{ id: string; data_limit_mb: number | null }>(`select id, data_limit_mb from hotspot_plans where id in ($1, $2)`, [plan1h, planMonth]);
+    expect(Object.fromEntries(rows.map((r) => [r.id, r.data_limit_mb]))).toEqual({ [plan1h]: 1024, [planMonth]: null });
+  });
+
+  it("the code is cut off when its data runs out, even with time left, and RADIUS gets the data left", async () => {
+    const { voucher_id, code: c1 } = await freeCode(plan1h);
+    const [v0] = await q<{ data_limit_mb: number; left_min: number }>(
+      `select data_limit_mb, round(extract(epoch from expires_at - now()) / 60)::int as left_min from hotspot_vouchers where id = $1`,
+      [voucher_id],
+    );
+    expect(v0).toEqual({ data_limit_mb: 1024, left_min: 180 });
+
+    const session = (bytes: number) => ({ type: "hotspot", username: c1, address: "10.5.50.40", caller_id: "AA:BB:CC:00:44:44", uptime_seconds: 60, bytes_in: bytes / 4, bytes_out: (bytes * 3) / 4 });
+    await commitAs("anon", (c) => ingest(c, { routers: [reading({ sessions: [session(600 * MB)] })] }));
+    await asUser(null, async (c) => {
+      const s = await sync(c);
+      expect(s.radius_access.find((e: { username: string }) => e.username === c1)).toMatchObject({ data_left_bytes: 424 * MB });
+    });
+    // The phone drops off, then reconnects and uses another 500 MB: 1,100 MB in all.
+    await commitAs("anon", (c) => ingest(c, { routers: [reading({ sessions: [] })] }));
+    await commitAs("anon", (c) => ingest(c, { routers: [reading({ sessions: [session(500 * MB)] })] }));
+    const [v] = await q<{ status: string; end_reason: string; used: string }>(
+      `select v.status, v.end_reason, u.used_bytes::text as used from hotspot_vouchers v join hotspot_voucher_usage u on u.voucher_id = v.id where v.id = $1`,
+      [voucher_id],
+    );
+    expect(v).toEqual({ status: "expired", end_reason: "Data used up", used: String(1100 * MB) });
+    const [cmd] = await q<{ n: number }>(`select count(*)::int as n from router_commands where voucher_id = $1 and command_type = 'disconnect_hotspot'`, [voucher_id]);
+    expect(cmd.n).toBe(1);
+  });
+
+  it("time runs from payment: a paid code that is never used runs out too", async () => {
+    const { voucher_id } = await freeCode(plan24h);
+    await q(`update hotspot_vouchers set expires_at = now() - interval '1 minute', created_at = now() - interval '25 hours' where id = $1`, [voucher_id]);
+    await q(`select private.expire_hotspot_vouchers()`);
+    const [v] = await q<{ status: string; end_reason: string }>(`select status, end_reason from hotspot_vouchers where id = $1`, [voucher_id]);
+    expect(v).toEqual({ status: "expired", end_reason: "Time ended before the code was used" });
+  });
+
+  it("an ISP can choose time from first login instead; then an unused code never expires", async () => {
+    await asUserCommit(owner, (c) => c.query(`select public.save_service_settings($1, array['mpesa'], null, 'Safaricom', null, null, 'first_login')`, [tenant]));
+    const { voucher_id } = await freeCode(plan24h);
+    await q(`select private.expire_hotspot_vouchers()`);
+    const [v] = await q<{ status: string; expires_at: string | null }>(`select status, expires_at from hotspot_vouchers where id = $1`, [voucher_id]);
+    expect(v).toEqual({ status: "unused", expires_at: null });
+    await asUserCommit(owner, (c) => c.query(`select public.save_service_settings($1, array['mpesa'], null, 'Safaricom', null, null, 'payment')`, [tenant]));
+  });
+});
+
+describe("issuing a code by hand when a customer paid but got nothing", () => {
+  const sell = (ref: string, planId = plan24h, phone: string | null = "0711000777") =>
+    asUserCommit(owner, (c) => c.query(`select * from public.sell_hotspot_voucher($1, $2, $3, $4)`, [tenant, planId, phone, ref]).then((r) => r.rows[0] as { voucher_id: string; code: string }));
+
+  it("ties the code to a paybill payment already in FibrePulse, and never gives one M-Pesa transaction two codes", async () => {
+    const receipt = mpesaRef();
+    // Paid Ksh 55 to the paybill: no plan costs that, so no code went out.
+    await commitAs("service_role", async (c) => {
+      const r = (await c.query(`select public.record_paybill_hotspot_payment($1, $2, 55, '254711000777', null, now()) as r`, [tenant, receipt])).rows[0].r;
+      expect(r.status).toBe("unmatched");
+    });
+    const issued = await sell(receipt);
+    const [v] = await q<{ data_source: string; amount: string; n: number }>(
+      `select p.data_source, p.amount::text, (select count(*)::int from payments where provider_reference = $2) as n
+       from hotspot_vouchers v join payments p on p.id = v.payment_id where v.id = $1`,
+      [issued.voucher_id, receipt],
+    );
+    expect(v).toEqual({ data_source: "provider", amount: "55.00", n: 1 });
+    const again = await asUserCommit(owner, (c) => tryQuery(c, `select * from public.sell_hotspot_voucher($1, $2, null, $3)`, [tenant, plan24h, receipt]));
+    expect(again.ok === false && again.error).toContain(`already has WiFi code ${issued.code}`);
+    // A late paybill confirmation for the same receipt is a no-op.
+    await commitAs("service_role", async (c) => {
+      const r = (await c.query(`select public.record_paybill_hotspot_payment($1, $2, 55, '254711000777', null, now()) as r`, [tenant, receipt])).rows[0].r;
+      expect(r).toMatchObject({ duplicate: true, code: issued.code });
+    });
+  });
+
+  it("refuses a payment smaller than the plan", async () => {
+    const receipt = mpesaRef();
+    await commitAs("service_role", (c) => c.query(`select public.record_paybill_hotspot_payment($1, $2, 20, null, null, now())`, [tenant, receipt]));
+    const r = await asUserCommit(owner, (c) => tryQuery(c, `select * from public.sell_hotspot_voucher($1, $2, null, $3)`, [tenant, plan24h, receipt]));
+    expect(r.ok === false && r.error).toMatch(/was Ksh 20.*costs Ksh 50/);
+  });
+
+  it("a WiFi-page payment that arrives after the owner issued a code by hand gets no second code", async () => {
+    const receipt = mpesaRef();
+    const buy = await asUserCommit(owner, (c) => c.query(`select public.hotspot_portal_buy($1, $2, '0799000666', null) as b`, [slug, plan24h]).then((r) => r.rows[0].b));
+    const issued = await sell(receipt, plan24h, "0799000666");
+    await commitAs("service_role", async (c) => {
+      const r = (await c.query(`select public.confirm_hotspot_payment($1, true, $2, 50, '254799000666', now()) as r`, [buy.voucher_id, receipt])).rows[0].r;
+      expect(r).toMatchObject({ status: "payment_failed", reason: "already_issued", code: issued.code });
+    });
+  });
+
+  it("the owner can send a code again by SMS, to a new number if needed", async () => {
+    const issued = await sell(mpesaRef(), plan24h, null);
+    await asUserCommit(owner, (c) => c.query(`select public.resend_hotspot_code_sms($1, '0722333444')`, [issued.voucher_id]));
+    const sms = await q<{ phone: string; body: string }>(`select phone, body from customer_sms_outbox where voucher_id = $1`, [issued.voucher_id]);
+    expect(sms).toHaveLength(1);
+    expect(sms[0].phone).toBe("+254722333444");
+    expect(sms[0].body).toContain(issued.code);
+    await asUser(support, async (c) => {
+      const r = await tryQuery(c, `select public.resend_hotspot_code_sms($1, null)`, [issued.voucher_id]);
+      expect(r.ok).toBe(false);
     });
   });
 });

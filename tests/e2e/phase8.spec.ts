@@ -79,3 +79,34 @@ test("monthly plans are PPPoE household plans, with Static IP kept for later", a
   await expect(page.getByLabel("Connection type")).toHaveValue("pppoe");
   await expect(page.locator("#pkg-type option[value=static]")).toHaveText("Static IP");
 });
+
+test("the owner sets the data for a Limited plan; codes then show data used", async ({ page }) => {
+  await signIn(page, "owner@mwangaza.test");
+  await page.goto("/hotspot/plans");
+  // The client has not given the data amounts yet, so Limited plans say so.
+  await expect(page.getByTestId("cap-missing").first()).toBeVisible();
+  await page.getByRole("link", { name: "3 Hours", exact: true }).click();
+  await page.getByLabel("Data for the period (GB)").fill("1");
+  await page.getByRole("button", { name: "Save plan" }).click();
+  await page.goto("/hotspot/plans");
+  await expect(page.getByRole("row", { name: /3 Hours/ })).toContainText("1 GB");
+  await expect(page.getByRole("row", { name: /2 Days/ })).toContainText("no data limit");
+});
+
+test("the client's PPPoE household plans are set up", async ({ page }) => {
+  await signIn(page, "owner@mwangaza.test");
+  await page.goto("/packages");
+  for (const [name, price] of [["10 Mbps", "1,500"], ["40 Mbps", "4,000"]]) {
+    await expect(page.getByRole("row").filter({ has: page.getByRole("link", { name, exact: true }) })).toContainText(price);
+  }
+});
+
+test("the owner sends a code again by SMS from the codes page", async ({ page }) => {
+  await signIn(page, "owner@mwangaza.test");
+  await page.goto("/hotspot/codes?status=live");
+  const row = page.getByRole("row").filter({ hasText: "DEMO08" });
+  await row.getByText("Send by SMS…").click();
+  await row.getByLabel("Send to").fill("0712345678");
+  await row.getByRole("button", { name: "Send code by SMS" }).click();
+  await expect(row.getByText("The code is on its way by SMS.")).toBeVisible();
+});

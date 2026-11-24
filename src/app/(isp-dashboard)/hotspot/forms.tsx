@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Field, FormMessage, SubmitButton, useFormAction } from "@/components/shared/form-bits";
 import { formatKsh, formatPlanDuration } from "@/lib/format";
-import { cancelCodeAction, compensateAction, giveFreeCodeAction, savePlanAction, sellCodeAction } from "@/modules/hotspot/actions";
+import { cancelCodeAction, compensateAction, giveFreeCodeAction, savePlanAction, sellCodeAction, resendCodeAction } from "@/modules/hotspot/actions";
 import type { HotspotPlan } from "@/modules/hotspot/service";
 
 type PlanOption = Pick<HotspotPlan, "id" | "name" | "price" | "duration_minutes">;
@@ -89,6 +89,20 @@ export function CompensateForm() {
   );
 }
 
+export function ResendCodeForm({ id, phone }: { id: string; phone: string | null }) {
+  const { state, pending, formProps } = useFormAction(resendCodeAction);
+  return (
+    <form {...formProps} className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end" noValidate>
+      <input type="hidden" name="id" value={id} />
+      <Field id={`resend-${id}`} label="Send to">
+        <Input id={`resend-${id}`} name="phone" type="tel" defaultValue={phone ? phone.replace(/^\+254/, "0") : ""} placeholder="0712 345 678" />
+      </Field>
+      <SubmitButton pending={pending} variant="outline" size="sm" pendingText="Sending…">Send code by SMS</SubmitButton>
+      <div className="sm:col-span-2"><FormMessage state={state} /></div>
+    </form>
+  );
+}
+
 export function CancelCodeForm({ id, code }: { id: string; code: string }) {
   const { state, pending, formProps } = useFormAction(cancelCodeAction);
   return (
@@ -150,8 +164,8 @@ export function PlanForm({ plan }: { plan?: HotspotPlan }) {
         </Field>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field id="plan-cap" label="Data cap (MB)" errors={e?.dataLimitMb} hint="Optional.">
-          <Input id="plan-cap" name="dataLimitMb" inputMode="numeric" defaultValue={plan?.data_limit_mb ?? ""} />
+        <Field id="plan-cap" label="Data for the period (GB)" errors={e?.dataLimitGb} hint="Limited plans only, e.g. 1 for 1 GB. The buyer is cut off when it runs out or the time ends, whichever comes first.">
+          <Input id="plan-cap" name="dataLimitGb" inputMode="decimal" defaultValue={plan?.data_limit_mb ? String(Math.round((plan.data_limit_mb / 1024) * 100) / 100) : ""} />
         </Field>
         <Field id="plan-profile" label="Router profile" errors={e?.networkProfile} hint="Optional MikroTik/RADIUS profile.">
           <Input id="plan-profile" name="networkProfile" defaultValue={plan?.network_profile ?? ""} />

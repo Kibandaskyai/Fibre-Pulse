@@ -1,6 +1,7 @@
 "use client";
 import { Field, FormMessage, SubmitButton, useFormAction } from "@/components/shared/form-bits";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { saveServiceSettingsAction } from "@/modules/hotspot/actions";
 import type { ServiceSettings } from "@/modules/hotspot/service";
 
@@ -40,6 +41,12 @@ export function ServiceSettingsForm({ values }: { values: ServiceSettings }) {
         </Field>
         <Field id="svc-target" label="Address the router pings to check the internet" errors={fe?.upstreamCheckTarget}>
           <Input id="svc-target" name="upstreamCheckTarget" inputMode="decimal" defaultValue={values.upstreamCheckTarget} />
+        </Field>
+        <Field id="svc-clock" label="Hotspot time starts" errors={fe?.hotspotClockStart}>
+          <NativeSelect id="svc-clock" name="hotspotClockStart" defaultValue={values.hotspotClockStart}>
+            <option value="payment">When the code is paid for</option>
+            <option value="first_login">When the code is first used (unused codes never run out)</option>
+          </NativeSelect>
         </Field>
       </div>
       <FormMessage state={state} />

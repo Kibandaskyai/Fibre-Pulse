@@ -54,7 +54,7 @@ export default async function HotspotPage() {
             <KpiCard label="Running codes" value={s.active_codes.toLocaleString("en-KE")} hint={`${s.expiring_hour} ending within the hour`} href="/hotspot/codes?status=active"
               badge={s.simulated ? <DataSourceBadge source="simulated" /> : undefined} />
             <KpiCard label="Sold today" value={formatKsh(s.sales_today)} hint={`${plural(s.sold_today, "code")}${s.free_today ? ` · ${s.free_today} free` : ""}`} href="/hotspot/codes" />
-            <KpiCard label="Paid, not used yet" value={s.unused_codes.toLocaleString("en-KE")} hint={s.awaiting_payment ? `${s.awaiting_payment} waiting for M-Pesa` : "Clock starts at first login"} href="/hotspot/codes?status=unused" />
+            <KpiCard label="Paid, not used yet" value={s.unused_codes.toLocaleString("en-KE")} hint={s.awaiting_payment ? `${s.awaiting_payment} waiting for M-Pesa` : "Not used on a device yet"} href="/hotspot/codes?status=unused" />
             <KpiCard label="Devices" value={s.devices.toLocaleString("en-KE")} hint={`${s.devices_30d.toLocaleString("en-KE")} used in the last 30 days`} />
           </section>
         ) : null}
@@ -90,7 +90,10 @@ export default async function HotspotPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Issue a code for an M-Pesa payment</CardTitle>
-                  <CardDescription>For a customer who paid the paybill and called you. The payment is recorded and checked against your statement later.</CardDescription>
+                  <CardDescription>
+                    For a customer who paid but did not get a code, for example while the system was down. One code per M-Pesa transaction:
+                    if the payment is already in FibrePulse the code is tied to it, and a payment that already has a code is refused. The code is sent by SMS.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent><SellCodeForm plans={onSale} /></CardContent>
               </Card>

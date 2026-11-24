@@ -13,7 +13,7 @@ export const hotspotPlanSchema = z
     downloadMbps: z.coerce.number().positive("Enter a speed above zero.").max(10_000),
     uploadMbps: z.preprocess(blankToNull, z.coerce.number().positive().max(10_000).nullable()),
     usageType: z.enum(["limited", "unlimited"]),
-    dataLimitMb: z.preprocess(blankToNull, z.coerce.number().int().positive().nullable()),
+    dataLimitGb: z.preprocess(blankToNull, z.coerce.number("Enter the data in GB, e.g. 1 or 0.5.").positive("Enter more than 0 GB.").max(10_000).nullable()),
     networkProfile: z.preprocess(blankToNull, z.string().trim().max(64).nullable()),
     sortOrder: z.preprocess(blankToNull, z.coerce.number().int().min(0).max(999).nullable()),
   })
@@ -21,7 +21,10 @@ export const hotspotPlanSchema = z
     const minutes = v.durationValue * (v.durationUnit === "days" ? 1440 : v.durationUnit === "hours" ? 60 : 1);
     if (minutes < 10) ctx.addIssue({ code: "custom", path: ["durationValue"], message: "Plans run for at least 10 minutes." });
     if (minutes > 527040) ctx.addIssue({ code: "custom", path: ["durationValue"], message: "Plans run for at most a year." });
-    return { ...v, durationMinutes: minutes };
+    // Limited plans have a data cap for the period; Unlimited plans never do.
+    // A Limited plan may be saved without a cap until the ISP decides it.
+    const dataLimitMb = v.usageType === "limited" && v.dataLimitGb ? Math.max(1, Math.round(v.dataLimitGb * 1024)) : null;
+    return { ...v, durationMinutes: minutes, dataLimitMb };
   });
 export type HotspotPlanInput = z.infer<typeof hotspotPlanSchema>;
 
@@ -46,6 +49,11 @@ export const cancelCodeSchema = z.object({
   reason: z.string().trim().min(5, "Give a reason (at least 5 characters).").max(300),
 });
 
+export const resendCodeSchema = z.object({
+  id: z.uuid(),
+  phone: optionalKenyanPhone,
+});
+
 export const compensateSchema = z.object({
   minutes: z.coerce.number().int("Whole minutes.").min(1, "At least 1 minute.").max(10080, "At most 7 days."),
   reason: z.string().trim().min(5, "Give a reason (at least 5 characters).").max(300),
@@ -64,6 +72,7 @@ export const serviceSettingsSchema = z.object({
       .regex(/^(\d{1,3}\.){3}\d{1,3}$/, "An IPv4 address, for example 8.8.8.8.")
       .nullable(),
   ),
+  hotspotClockStart: z.enum(["payment", "first_login"]).default("payment"),
 });
 
 /** The public buying page. */

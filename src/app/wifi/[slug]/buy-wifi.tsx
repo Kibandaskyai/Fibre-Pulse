@@ -4,7 +4,7 @@ import { CheckCircle2, FlaskConical, Loader2, Smartphone, Wifi, WifiOff } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatPlanDuration } from "@/lib/format";
+import { formatData, formatPlanDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { buyAction, simulatePaymentAction, statusAction, type BuyResult, type StatusResult } from "@/modules/hotspot/portal-actions";
 
@@ -14,7 +14,8 @@ export type PortalInfo = {
   support_phone: string | null;
   demo: boolean;
   network_ok: boolean;
-  plans: { id: string; name: string; price: number; duration_minutes: number; download_mbps: number; usage_type: string }[];
+  clock_start?: "payment" | "first_login";
+  plans: { id: string; name: string; price: number; duration_minutes: number; download_mbps: number; usage_type: string; data_limit_mb?: number | null }[];
 };
 
 export function BuyWifi({ slug, info, mac, loginUrl, dst, error }: { slug: string; info: PortalInfo; mac: string | null; loginUrl: string | null; dst: string; error: string }) {
@@ -72,7 +73,9 @@ export function BuyWifi({ slug, info, mac, loginUrl, dst, error }: { slug: strin
           <p className="text-sm">Paid. Your code for {status?.plan}:</p>
           <p className="tabular text-3xl font-semibold tracking-[0.35em]" data-testid="wifi-code">{code}</p>
           {status?.simulated ? <p className="text-xs text-simulated">SIMULATED demo code: it does not open a real network.</p> : null}
-          <p className="text-xs text-muted-foreground">Time starts when you connect. It works on this device only.</p>
+          <p className="text-xs text-muted-foreground">
+            {info.clock_start === "first_login" ? "Time starts when you connect." : "Your time has started."} It works on this device only.
+          </p>
           {loginUrl ? (
             <form method="post" action={loginUrl}>
               <input type="hidden" name="username" value={code} />
@@ -100,7 +103,9 @@ export function BuyWifi({ slug, info, mac, loginUrl, dst, error }: { slug: strin
                 >
                   <span className="block text-sm font-medium">{formatPlanDuration(p.duration_minutes)}</span>
                   <span className="tabular block text-lg font-semibold">Ksh {Number(p.price).toLocaleString("en-KE")}</span>
-                  <span className="block text-xs text-muted-foreground">{Number(p.download_mbps)} Mbps</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {Number(p.download_mbps)} Mbps · {p.usage_type === "limited" && p.data_limit_mb ? formatData(p.data_limit_mb) : "Unlimited data"}
+                  </span>
                 </button>
               ))}
             </div>

@@ -70,6 +70,19 @@ describe("hotspot codes in the RADIUS policy", () => {
     expect(restarted.decide("K7PX2M", "AA:BB:CC:00:11:99").status).toBe(401);
   });
 
+  it("gives Limited codes their data left and refuses a code whose data is used up", () => {
+    const p = new RadiusPolicy(null, () => T0);
+    const big = 5 * 2 ** 32 + 123; // over 4 GiB: needs the Gigawords attribute
+    p.load([
+      code({ expires_at: "2026-11-24T13:00:00Z", data_left_bytes: big }),
+      code({ username: "EMPTY1", expires_at: "2026-11-24T13:00:00Z", data_left_bytes: 0 }),
+    ]);
+    const ok = p.decide("K7PX2M", "aa:bb:cc:00:11:22");
+    expect(ok.status).toBe(200);
+    expect(ok.body).toMatchObject({ "reply:Mikrotik-Total-Limit": 123, "reply:Mikrotik-Total-Limit-Gigawords": 5, "reply:Session-Timeout": 3 * 3600 });
+    expect(p.decide("EMPTY1", "aa:bb:cc:00:11:23")).toEqual({ status: 401, body: { "reply:Reply-Message": "Your data is used up. Buy a new plan to continue." } });
+  });
+
   it("reads MAC addresses in the usual RADIUS spellings", () => {
     expect(normaliseMac("AA-BB-CC-00-11-22")).toBe("aa:bb:cc:00:11:22");
     expect(normaliseMac("aabb.cc00.1122")).toBe("aa:bb:cc:00:11:22");

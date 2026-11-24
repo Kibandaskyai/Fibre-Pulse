@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPlanDuration, timeLeft } from "@/lib/format";
+import { formatData, formatPlanDuration, timeLeft } from "@/lib/format";
 import { cleanMac, safeHotspotLoginUrl } from "@/lib/hotspot-login";
 import { compensateSchema, hotspotPlanSchema, portalBuySchema, sellCodeSchema, serviceSettingsSchema } from "@/lib/validation/hotspot";
 
@@ -53,13 +53,29 @@ describe("hotspot login address", () => {
 });
 
 describe("hotspot forms", () => {
-  const plan = { name: "24 Hours", durationValue: "24", durationUnit: "hours", price: "50", downloadMbps: "10", uploadMbps: "", usageType: "limited", dataLimitMb: "", networkProfile: "", sortOrder: "" };
+  const plan = { name: "24 Hours", durationValue: "24", durationUnit: "hours", price: "50", downloadMbps: "10", uploadMbps: "", usageType: "limited", dataLimitGb: "", networkProfile: "", sortOrder: "" };
 
   it("turns a plan's duration into minutes", () => {
     const r = hotspotPlanSchema.safeParse(plan);
     expect(r.success && r.data.durationMinutes).toBe(1440);
     const d = hotspotPlanSchema.safeParse({ ...plan, durationValue: "7", durationUnit: "days" });
     expect(d.success && d.data.durationMinutes).toBe(10080);
+  });
+
+  it("stores a Limited plan's data in MB and never gives an Unlimited plan a cap", () => {
+    const limited = hotspotPlanSchema.safeParse({ ...plan, dataLimitGb: "1" });
+    expect(limited.success && limited.data.dataLimitMb).toBe(1024);
+    const half = hotspotPlanSchema.safeParse({ ...plan, dataLimitGb: "0.5" });
+    expect(half.success && half.data.dataLimitMb).toBe(512);
+    const notYet = hotspotPlanSchema.safeParse(plan);
+    expect(notYet.success && notYet.data.dataLimitMb).toBeNull();
+    const unlimited = hotspotPlanSchema.safeParse({ ...plan, usageType: "unlimited", dataLimitGb: "5" });
+    expect(unlimited.success && unlimited.data.dataLimitMb).toBeNull();
+    expect(hotspotPlanSchema.safeParse({ ...plan, dataLimitGb: "-1" }).success).toBe(false);
+    expect(formatData(1024)).toBe("1 GB");
+    expect(formatData(1536)).toBe("1.5 GB");
+    expect(formatData(500)).toBe("500 MB");
+    expect(formatData(null)).toBe("—");
   });
 
   it("refuses plans M-Pesa or the router cannot handle", () => {

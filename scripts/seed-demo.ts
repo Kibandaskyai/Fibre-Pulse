@@ -10,7 +10,8 @@
  *     and two SIMULATED M-Pesa payments that can never be verified
  *   - "Mwangaza Fibre Networks" (active) with one user per ISP role
  *   - "Pwani Connect" (pending) to demonstrate tenant isolation
- *   - fictional customers (no monthly packages until the client gives prices), and SIMULATED routers
+ *   - the client's 5 PPPoE household plans (30 days), fictional customers
+ *     and SIMULATED routers
  *   - (Phase 6) Mwangaza's signed 2.75% agreement from October 2026
  *   - (Phase 8) the pilot's 9 hotspot plans, M-Pesa-only settings and a few
  *     SIMULATED hotspot codes (DEMO00…DEMO11). The demo WiFi page is
@@ -103,14 +104,27 @@ async function main() {
   }
   await db.from("technicians").upsert({ tenant_id: mwangaza, profile_id: tech, zone: "Kasarani / Roysambu", phone: "+254700100005" }, { onConflict: "tenant_id,profile_id" });
 
-  // No monthly packages are seeded: the first list (23 Nov 2026) was
-  // tentative and the client has not given monthly prices yet. The owner
-  // adds them under Packages. Demo monthly customers start with no package.
+  // The client's PPPoE household plans (screenshot of their current system,
+  // 24 Nov 2026): 30 days each. Upload is assumed equal to download until the
+  // client says otherwise. (The 23 Nov list was tentative and is not used.)
+  const pppoePlans = [
+    { name: "10 Mbps", download_mbps: 10, upload_mbps: 10, price: 1500 },
+    { name: "15 Mbps", download_mbps: 15, upload_mbps: 15, price: 2000 },
+    { name: "20 Mbps", download_mbps: 20, upload_mbps: 20, price: 2500 },
+    { name: "25 Mbps", download_mbps: 25, upload_mbps: 25, price: 3000 },
+    { name: "40 Mbps", download_mbps: 40, upload_mbps: 40, price: 4000 },
+  ];
+  for (const p of pppoePlans) {
+    await db.from("service_packages").upsert(
+      { tenant_id: mwangaza, description: "PPPoE household plan", billing_period: "custom", duration_days: 30, connection_type: "pppoe", ...p },
+      { onConflict: "tenant_id,name" },
+    );
+  }
 
   // Phase 8 (client update 24 Nov 2026): the pilot ISP mostly sells hotspot
   // time per device, all 10 Mbps, paid by M-Pesa paybill only. Prices are the
-  // client's current plans. Limited/Unlimited labels are copied as shown and
-  // carry no data cap until the client explains them.
+  // client's current plans. Limited plans have a data cap for the period, but
+  // the client has not given the sizes yet, so the caps are left unset.
   const t = (await must(db.from("tenants").select("settings").eq("id", mwangaza).single())) as { settings: Record<string, unknown> | null };
   await must(
     db.from("tenants").update({

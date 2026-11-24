@@ -99,6 +99,15 @@ export function isoToKenyaLocal(value: string | null | undefined): string {
 }
 
 /** Hotspot plan length: 60 -> "1 hour", 1440 -> "24 hours", 4320 -> "3 days", 43200 -> "30 days". */
+/** Data in MB as people say it: "500 MB", "1 GB", "1.5 GB". */
+export function formatData(mb: number | null | undefined): string {
+  const m = Number(mb ?? 0);
+  if (!(m > 0)) return "—";
+  if (m < 1024) return `${Math.round(m)} MB`;
+  const gb = m / 1024;
+  return `${Number.isInteger(gb) ? gb : gb.toFixed(1).replace(/\.0$/, "")} GB`;
+}
+
 export function formatPlanDuration(minutes: number | null | undefined): string {
   const m = Number(minutes ?? 0);
   if (!m) return "—";

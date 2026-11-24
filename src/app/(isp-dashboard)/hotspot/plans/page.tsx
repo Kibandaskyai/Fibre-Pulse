@@ -11,7 +11,7 @@ import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { UsageTypeBadge } from "@/components/hotspot/badges";
 import { requirePagePermission } from "@/lib/auth/guards";
-import { formatKsh, formatPlanDuration } from "@/lib/format";
+import { formatData, formatKsh, formatPlanDuration } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { hotspotSummary, listPlans } from "@/modules/hotspot/service";
 
@@ -72,7 +72,13 @@ export default async function HotspotPlansPage({ searchParams }: { searchParams:
                   <TableRow key={p.id}>
                     <TableCell>
                       {canEdit ? <Link href={`/hotspot/plans/${p.id}`} className="font-medium hover:underline">{p.name}</Link> : <span className="font-medium">{p.name}</span>}
-                      <p className="text-xs text-muted-foreground">{formatPlanDuration(p.duration_minutes)}{p.data_limit_mb ? ` · ${p.data_limit_mb} MB cap` : ""}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatPlanDuration(p.duration_minutes)}
+                        {p.usage_type === "limited" ? (p.data_limit_mb ? ` · ${formatData(p.data_limit_mb)}` : null) : " · no data limit"}
+                      </p>
+                      {p.usage_type === "limited" && !p.data_limit_mb ? (
+                        <p className="text-xs text-warning" data-testid="cap-missing">Data amount not set yet: works like Unlimited until you add it.</p>
+                      ) : null}
                     </TableCell>
                     <TableCell><UsageTypeBadge type={p.usage_type} /></TableCell>
                     <TableCell className="hidden sm:table-cell tabular">{Number(p.download_mbps)} Mbps</TableCell>
