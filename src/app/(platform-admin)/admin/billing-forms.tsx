@@ -43,12 +43,7 @@ export function AgreementForm({
         <Field id="ag-rate" label="Fee (%)" hint="Pilot default 2.75">
           <Input id="ag-rate" name="feePercent" type="number" step="0.01" min="0.01" max="20" defaultValue={draft ? (draft.fee_rate * 100).toFixed(2) : "2.75"} />
         </Field>
-        <Field id="ag-basis" label="Charged on">
-          <NativeSelect id="ag-basis" name="feeBasis" defaultValue={draft?.fee_basis ?? "gross"}>
-            <option value="gross">Gross collections</option>
-            <option value="net_of_vat">Collections less 16% VAT</option>
-          </NativeSelect>
-        </Field>
+        <input type="hidden" name="feeBasis" value="gross" />
         <Field id="ag-from" label="Starts (month)" hint="Fees are charged per calendar month">
           <Input id="ag-from" name="effectiveMonth" type="month" defaultValue={draft ? draft.effective_from.slice(0, 7) : defaultMonth} />
         </Field>
@@ -160,9 +155,6 @@ export function IssueInvoiceForm({ tenantId }: { tenantId: string }) {
       <div className="flex flex-wrap items-end gap-2">
         <Field id="inv-due" label="Pay within (days)">
           <Input id="inv-due" name="dueDays" type="number" min={1} max={90} defaultValue={14} className="w-28" />
-        </Field>
-        <Field id="inv-vat" label="VAT (%)" hint="0 until FibrePulse is VAT registered">
-          <Input id="inv-vat" name="vatPercent" type="number" min={0} max={30} step="0.01" defaultValue={0} className="w-28" />
         </Field>
         <Field id="inv-notes" label="Note on invoice (optional)">
           <Input id="inv-notes" name="notes" className="w-64" maxLength={1000} />

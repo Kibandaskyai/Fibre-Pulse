@@ -23,7 +23,7 @@ async function recordPayment(page: Page, reference: string, amount: string) {
   await page.goto("/customers?q=Grace%20Wambui");
   await page.getByRole("link", { name: "Grace Wambui" }).first().click();
   await page.getByRole("link", { name: "Record payment" }).click();
-  await page.getByLabel("M-Pesa receipt or bank reference").fill(reference);
+  await page.getByLabel(/^M-Pesa receipt/).fill(reference);
   await page.getByLabel("Amount (Ksh)").fill(amount);
   await page.getByRole("button", { name: "Record payment" }).click();
   await page.waitForURL((url) => !url.pathname.endsWith("/payments/new"));

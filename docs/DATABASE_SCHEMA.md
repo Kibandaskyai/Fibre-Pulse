@@ -40,7 +40,9 @@ The 23 tables required by the spec, plus additions marked (+).
 
 **Commercial:** commercial_agreements (versioned; terms frozen after signing; no overlapping in-force periods), platform_fee_records (one per tenant per period; fee = round(eligible × rate, 2); corrections are adjustment rows), platform_invoices (+ `notes`, `void_reason`, `tax_rate`; numbers from `private.platform_invoice_seq`). Fee records may be negative only as adjustments (`adjustment_of`). Drafts start on the 1st of a month (`commercial_agreements_month_start` moves a registration draft to the next 1st).
 
-**Automation (Phase 7):** platform_billing_runs (+, one row per monthly billing run with per-ISP results; super admins only). `tenants.settings.access_control` is `router_secrets` (default) or `radius`. `pg_cron` jobs: `fibrepulse-expire-subscriptions` (every 5 minutes), `fibrepulse-monthly-billing` (1st, 03:00 UTC).
+**Automation (Phase 7):** platform_billing_runs (+, one row per monthly billing run with per-ISP results; super admins only). `tenants.settings.access_control` is `router_secrets` (default) or `radius`. `pg_cron` jobs: `fibrepulse-expire-subscriptions` (every minute since Phase 8; also expires hotspot codes), `fibrepulse-monthly-billing` (1st, 03:00 UTC).
+
+**Hotspot (Phase 8):** hotspot_plans (time in minutes, whole-shilling price, speeds, `usage_type` limited/unlimited label, optional `data_limit_mb` and `network_profile`), hotspot_vouchers (the access code: `code` unique per ISP, plan facts copied, `source` portal/paybill/staff/complimentary, `status` awaiting_payment → unused → active → expired, or cancelled/payment_failed; `mac_address` and `device_id` once used; one payment per code), hotspot_devices (one row per MAC: last phone, purchases, total spent), customer_sms_outbox (codes sent to buyers; service role only). `router_commands.voucher_id` (+, command type `disconnect_hotspot`). `routers.upstream_*` (+, Safaricom line state). `tenants.settings`: `payment_methods`, `mpesa_paybill`, `mpesa_account_number`, `hotspot_clock_start`, `upstream_provider`, `upstream_support_phone`, `upstream_check_target`, `portal_demo`. A trigger on payments refuses methods the ISP does not accept.
 
 ## Guards that protect money
 
@@ -63,3 +65,7 @@ The 23 tables required by the spec, plus additions marked (+).
 ## Relationships (main)
 
 tenants 1─* tenant_members *─1 profiles · tenants 1─* customers 1─1 customer_locations · customers 1─* subscriptions *─1 service_packages · customers 1─* invoices 1─* invoice_lines · payments *─* invoices via payment_allocations · payments 1─* payment_reconciliation_records · connector_agents 1─* routers 1─* router_interfaces / network_sessions / network_metrics / network_alerts · routers 1─1 router_credentials · customers 1─* support_tickets 1─* installation_jobs *─1 technicians · tenants 1─* commercial_agreements 1─* platform_fee_records *─1 platform_invoices.
+
+**Plan connection type (24 Nov 2026):** `service_packages.connection_type` is `pppoe` (default: household PPPoE, router dial-in or RADIUS) or `static` (fixed IP; billed the same way, not disconnected automatically yet). The pilot ISP has no static customers; the type stays for future ISPs.
+
+**Hotspot data and time (24 Nov 2026):** `hotspot_plans.data_limit_mb` is the data a Limited plan gives for the period (never set on Unlimited plans); a trigger copies it to `hotspot_vouchers.data_limit_mb` at purchase. `hotspot_voucher_usage` (one row per code: `closed_bytes` from ended sessions, `used_bytes` including the open session) is kept apart so usage updates do not count as code changes. A trigger sets `expires_at` when a code is paid for, unless `tenants.settings.hotspot_clock_start = 'first_login'`.

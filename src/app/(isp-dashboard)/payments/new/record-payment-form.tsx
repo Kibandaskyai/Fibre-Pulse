@@ -5,7 +5,10 @@ import { FormMessage, SubmitButton, useFormAction } from "@/components/shared/fo
 import { Label } from "@/components/ui/label";
 import { recordPaymentAction } from "@/modules/billing/actions";
 
-export function RecordPaymentForm({ customerId, defaultTime }: { customerId: string | null; defaultTime: string }) {
+const METHOD_LABELS = { mpesa: "M-Pesa", bank_transfer: "Bank transfer", other: "Other" } as const;
+
+export function RecordPaymentForm({ customerId, defaultTime, methods }: { customerId: string | null; defaultTime: string; methods: (keyof typeof METHOD_LABELS)[] }) {
+  const only = methods.length === 1 ? methods[0] : null;
   const { state, pending, formProps } = useFormAction(recordPaymentAction);
   return (
     <form {...formProps} className="grid gap-4" noValidate>
@@ -14,14 +17,19 @@ export function RecordPaymentForm({ customerId, defaultTime }: { customerId: str
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-1.5">
           <Label htmlFor="pay-method">Method</Label>
-          <NativeSelect id="pay-method" name="method" defaultValue="mpesa">
-            <option value="mpesa">M-Pesa</option>
-            <option value="bank_transfer">Bank transfer</option>
-            <option value="other">Other</option>
-          </NativeSelect>
+          {only ? (
+            <>
+              <input type="hidden" name="method" value={only} />
+              <Input id="pay-method" value={METHOD_LABELS[only]} readOnly disabled />
+            </>
+          ) : (
+            <NativeSelect id="pay-method" name="method" defaultValue={methods[0]}>
+              {methods.map((m) => <option key={m} value={m}>{METHOD_LABELS[m]}</option>)}
+            </NativeSelect>
+          )}
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="pay-ref">M-Pesa receipt or bank reference</Label>
+          <Label htmlFor="pay-ref">{only === "mpesa" ? "M-Pesa receipt" : "M-Pesa receipt or bank reference"}</Label>
           <Input id="pay-ref" name="reference" autoComplete="off" className="uppercase" placeholder="SKL4H7XY2Q" />
         </div>
       </div>

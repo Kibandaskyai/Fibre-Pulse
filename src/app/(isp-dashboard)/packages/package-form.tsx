@@ -17,6 +17,12 @@ export function PackageForm({ pkg }: { pkg?: ServicePackage }) {
       <Field id="pkg-name" label="Package name" errors={e?.name}>
         <Input id="pkg-name" name="name" required defaultValue={pkg?.name} placeholder="Home 10 Mbps" />
       </Field>
+      <Field id="pkg-type" label="Connection type" errors={e?.connectionType} hint="PPPoE for households with their own router. Static IP is billed the same way but is not disconnected automatically yet.">
+        <NativeSelect id="pkg-type" name="connectionType" defaultValue={pkg?.connection_type ?? "pppoe"}>
+          <option value="pppoe">PPPoE (household router)</option>
+          <option value="static">Static IP</option>
+        </NativeSelect>
+      </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field id="pkg-down" label="Download speed (Mbps)" errors={e?.downloadMbps}>
           <Input id="pkg-down" name="downloadMbps" inputMode="decimal" required defaultValue={pkg?.download_mbps ?? ""} />
@@ -26,7 +32,7 @@ export function PackageForm({ pkg }: { pkg?: ServicePackage }) {
         </Field>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="pkg-price" label="Price (Ksh)" errors={e?.price} hint="Gross price the customer pays, VAT included if you charge it.">
+        <Field id="pkg-price" label="Price (Ksh)" errors={e?.price} hint="The price the customer pays by M-Pesa.">
           <Input id="pkg-price" name="price" inputMode="decimal" required defaultValue={pkg?.price ?? ""} />
         </Field>
         <Field id="pkg-period" label="Billing period" errors={e?.billingPeriod}>

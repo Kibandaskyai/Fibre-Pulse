@@ -74,7 +74,7 @@ export const REVENUE_CATEGORY_LABELS: Record<string, string> = {
 
 export const FEE_BASIS_LABELS: Record<string, string> = {
   gross: "Gross collections",
-  net_of_vat: "Collections less 16% VAT",
+  net_of_vat: "Collections less 16% VAT (old agreements only)",
 };
 
 /** Display status: an issued invoice past its due date is overdue. */

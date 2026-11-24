@@ -17,6 +17,8 @@ import { formatDate, formatKsh, PAYMENT_METHOD_LABELS, plural } from "@/lib/form
 import { createClient } from "@/lib/supabase/server";
 import { change, loadRevenueReport } from "@/modules/analytics/report";
 import { customerAreas } from "@/modules/analytics/service";
+import { ServiceMoneyTable } from "@/components/hotspot/service-money";
+import { revenueByService } from "@/modules/hotspot/service";
 
 export const metadata: Metadata = { title: "Revenue" };
 
@@ -35,6 +37,7 @@ export default async function RevenuePage({ searchParams }: { searchParams: Prom
     loadRevenueReport(db, { tenantId: ctx.active.tenantId, tenantName: ctx.active.tenantName, range, area, canSeeCustomers }),
     canSeeCustomers ? customerAreas(db, ctx.active.tenantId) : Promise.resolve(undefined),
   ]);
+  const byService = report.ok && !area ? await revenueByService(db, ctx.active.tenantId, range.from, range.to, report.data.grain) : null;
 
   const qs = new URLSearchParams({ kind: "range", range: range.key, from: range.from, to: range.to, ...(area ? { area } : {}) }).toString();
   const header = (
@@ -98,6 +101,17 @@ export default async function RevenuePage({ searchParams }: { searchParams: Prom
         <KpiCard label="Packages sold" value={String(k.new_subscriptions + k.renewals + k.upgrades + k.downgrades)} hint={`${k.new_subscriptions} new · ${k.renewals} renewals · ${k.upgrades} upgrades · ${k.downgrades} downgrades`} />
         <KpiCard label="Simulated payments excluded" value={formatKsh(k.simulated_excluded)} hint={`${k.simulated_excluded_count} test payments, never revenue`} />
       </section>
+
+      {byService?.ok ? (
+        <div className="mb-6">
+          <ServiceMoneyTable
+            rows={byService.data}
+            grain={r.grain}
+            title={r.grain === "day" ? "Hotspot and monthly money by day" : "Hotspot and monthly money by month"}
+            description={`${range.label}. Hotspot codes and monthly customers counted apart, verified money only.`}
+          />
+        </div>
+      ) : null}
 
       <div className="mb-6 grid gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">

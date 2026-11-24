@@ -16,6 +16,7 @@ export type ServicePackage = {
   upload_mbps: number;
   price: number;
   billing_period: "daily" | "weekly" | "monthly" | "custom";
+  connection_type: "pppoe" | "static";
   duration_days: number | null;
   data_limit_gb: number | null;
   fair_usage_policy: string | null;
@@ -26,7 +27,7 @@ export type ServicePackage = {
 };
 
 const COLUMNS =
-  "id, name, description, download_mbps, upload_mbps, price, billing_period, duration_days, data_limit_gb, fair_usage_policy, network_profile, status, revenue_category, created_at";
+  "id, name, description, download_mbps, upload_mbps, price, billing_period, connection_type, duration_days, data_limit_gb, fair_usage_policy, network_profile, status, revenue_category, created_at";
 
 function toRow(input: PackageInput) {
   return {
@@ -36,6 +37,7 @@ function toRow(input: PackageInput) {
     upload_mbps: input.uploadMbps,
     price: input.price,
     billing_period: input.billingPeriod,
+    connection_type: input.connectionType,
     duration_days: input.durationDays,
     data_limit_gb: input.dataLimitGb,
     fair_usage_policy: input.fairUsagePolicy,

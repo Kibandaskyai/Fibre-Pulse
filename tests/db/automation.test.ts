@@ -47,7 +47,7 @@ beforeAll(async () => {
   finance = await createUser("auto-finance");
   superAdmin = await createUser("auto-super", { platformRole: "super_admin" });
   tenant = await asUserCommit(owner, (c) => c.query(`select public.register_tenant('Automation ISP', $1) as id`, [`auto-${runId}`]).then((r) => r.rows[0].id));
-  await q(`update tenants set status = 'active', settings = settings || '{"router_enforcement": true}' where id = $1`, [tenant]);
+  await q(`update tenants set status = 'active', settings = settings || '{"router_enforcement": true, "payment_methods": ["mpesa", "bank_transfer", "other"]}' where id = $1`, [tenant]);
   await q(`insert into tenant_members (tenant_id, profile_id, role) values ($1, $2, 'finance')`, [tenant, finance.id]);
   const [{ id: agent }] = await q<{ id: string }>(
     `insert into connector_agents (tenant_id, name, token_hash, token_prefix) values ($1, 'Auto NOC', $2, 'fpc_auto') returning id`,
@@ -105,7 +105,7 @@ describe("expired packages disconnect", () => {
   it("the expiry and billing schedules are installed", async () => {
     const jobs = await q<{ jobname: string; schedule: string }>(`select jobname, schedule from cron.job where jobname like 'fibrepulse-%' order by jobname`);
     expect(jobs).toEqual([
-      { jobname: "fibrepulse-expire-subscriptions", schedule: "*/5 * * * *" },
+      { jobname: "fibrepulse-expire-subscriptions", schedule: "* * * * *" },
       { jobname: "fibrepulse-monthly-billing", schedule: "0 3 1 * *" },
     ]);
   });

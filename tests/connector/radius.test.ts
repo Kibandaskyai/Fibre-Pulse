@@ -15,7 +15,7 @@ import { RouterOsClient } from "../../connector/mikrotik-agent/src/routeros";
 
 const SECRET = "radius-shared-secret-0123456789";
 const list = [
-  { username: "grace.w", allowed: true, download_mbps: 20, upload_mbps: 20, expires_at: "2026-12-24T00:00:00Z" },
+  { username: "grace.w", allowed: true, download_mbps: 20, upload_mbps: 20, expires_at: "2099-12-24T00:00:00Z" },
   { username: "Peter.N", allowed: false, download_mbps: null, upload_mbps: null, expires_at: null },
 ];
 

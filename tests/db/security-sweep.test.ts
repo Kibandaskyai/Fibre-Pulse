@@ -87,12 +87,23 @@ describe("database permissions", () => {
     expect(writable).toEqual([]);
   });
 
-  it("the public can call only the connector functions (which check their own token)", async () => {
+  it("the public can call only the connector functions (which check their own token) and the hotspot buying page", async () => {
     const fns = await q<{ proname: string }>(
       `select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
        where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute') order by 1`,
     );
-    expect(fns.map((f) => f.proname)).toEqual(["connector_command_result", "connector_ingest", "connector_sync"]);
+    expect(fns.map((f) => f.proname)).toEqual([
+      "connector_command_result",
+      "connector_ingest",
+      "connector_sync",
+      // People buying WiFi are not signed in. These show plan prices, start an
+      // unpaid purchase (rate limited) and report its status; payment is only
+      // confirmed by the server with the service role (see hotspot.test.ts).
+      "hotspot_portal",
+      "hotspot_portal_buy",
+      "hotspot_portal_simulate_payment",
+      "hotspot_portal_status",
+    ]);
   });
 
   it("the private schema is out of reach of the public API", async () => {

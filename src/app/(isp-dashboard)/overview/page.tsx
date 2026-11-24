@@ -34,6 +34,9 @@ import {
 } from "@/modules/analytics/service";
 import { expireDueSubscriptions } from "@/modules/billing/service";
 import { networkAvailability, networkSummary } from "@/modules/network/service";
+import { NetworkStatusCard } from "@/components/hotspot/network-status";
+import { ServiceMoneyTable } from "@/components/hotspot/service-money";
+import { hotspotSummary, networkStatus, revenueByService } from "@/modules/hotspot/service";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -82,6 +85,14 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   ]);
 
   const [live, availability] = can.network ? await Promise.all([networkSummary(db, tenantId), networkAvailability(db, tenantId, 24)]) : [null, null];
+  // Pilot client: people online, hotspot sales, and money per day and month split hotspot / monthly.
+  const monthStart = `${today.slice(0, 8)}01`;
+  const [netStatus, hotspot, daily, byMonth] = await Promise.all([
+    networkStatus(db, tenantId),
+    can.subscriptions ? hotspotSummary(db, tenantId) : Promise.resolve(null),
+    can.revenue ? revenueByService(db, tenantId, monthStart, today, "day") : Promise.resolve(null),
+    can.revenue ? revenueByService(db, tenantId, months.from, months.to, "month") : Promise.resolve(null),
+  ]);
   const k = kpis?.ok ? kpis.data : null;
   const setup = [
     { done: ctx.active.tenantStatus === "active", label: "FibrePulse activates your workspace", href: null, show: true },
@@ -97,13 +108,32 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         description="Money figures count verified payments only. Simulated test data is labelled and never included."
         actions={<TenantStatusBadge status={ctx.active.tenantStatus} />}
       />
+      <div className="mb-6"><NetworkStatusCard status={netStatus} /></div>
+
+      {hotspot ? (
+        <Section title="Hotspot">
+          <KpiCard label="Running codes" value={hotspot.active_codes.toLocaleString("en-KE")} hint={`${hotspot.expiring_hour} ending within the hour`} href="/hotspot"
+            badge={hotspot.simulated ? <DataSourceBadge source="simulated" /> : undefined} />
+          <KpiCard label="Hotspot sales today" value={formatKsh(hotspot.sales_today)} hint={`${plural(hotspot.sold_today, "code")} sold`} href="/hotspot/codes" />
+          <KpiCard label="Paid, not used yet" value={hotspot.unused_codes.toLocaleString("en-KE")} href="/hotspot/codes?status=unused" />
+          <KpiCard label="Hotspot devices" value={hotspot.devices.toLocaleString("en-KE")} hint={`${hotspot.devices_30d.toLocaleString("en-KE")} in the last 30 days`} />
+        </Section>
+      ) : null}
+
+      {daily?.ok && byMonth?.ok ? (
+        <div className="mb-6 grid gap-6 xl:grid-cols-2">
+          <ServiceMoneyTable rows={daily.data} grain="day" title="Money per day, this month" description="Verified M-Pesa money, hotspot and monthly customers, newest day first." />
+          <ServiceMoneyTable rows={byMonth.data} grain="month" title="Money per month" description="Verified M-Pesa money, last 12 months." />
+        </div>
+      ) : null}
+
       {can.revenue || can.customers ? (
         <RangeFilter path="/overview" range={range} area={area} areas={areas ?? undefined} />
       ) : null}
 
       {can.customers && counts ? (
         <Section title="Customers">
-          <KpiCard label="Registered customers" value={counts.total.toLocaleString("en-KE")} href="/customers" />
+          <KpiCard label="Monthly customers" value={counts.total.toLocaleString("en-KE")} hint="With their own routers" href="/customers" />
           <KpiCard label="Active" value={counts.active.toLocaleString("en-KE")} href="/customers?status=active" />
           <KpiCard label="Suspended" value={counts.suspended.toLocaleString("en-KE")} tone={counts.suspended ? "danger" : undefined} href="/customers?status=suspended" />
           <KpiCard label="New today" value={counts.newToday.toLocaleString("en-KE")} hint={`${counts.pending} awaiting installation`} />

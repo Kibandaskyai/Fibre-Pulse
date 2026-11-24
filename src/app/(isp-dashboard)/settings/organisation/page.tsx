@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { OrganisationForm } from "./organisation-form";
 import { EnforcementForm } from "./enforcement-form";
 import { AccessControlForm } from "./access-control-form";
+import { ServiceSettingsForm } from "./service-settings-form";
+import { readServiceSettings } from "@/modules/hotspot/service";
 
 export const metadata: Metadata = { title: "Organisation" };
 
@@ -21,6 +23,7 @@ export default async function OrganisationPage() {
   const settings = (t?.settings ?? {}) as { router_enforcement?: boolean; access_control?: string };
   const enforcement = Boolean(settings.router_enforcement);
   const accessMode = settings.access_control === "radius" ? "radius" : "router_secrets";
+  const service = readServiceSettings((t?.settings ?? null) as Record<string, unknown> | null);
 
   return (
     <>
@@ -49,6 +52,17 @@ export default async function OrganisationPage() {
             <div className="flex justify-between"><span className="text-muted-foreground">Currency</span><span>{t?.currency}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Time zone</span><span>{t?.timezone}</span></div>
           </CardContent>
+        </Card>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Payments and internet provider</CardTitle>
+            <CardDescription>
+              The paybill is shown on the WiFi buying page. Payment methods limit what can be recorded (most ISPs here accept M-Pesa only).
+              The router pings the check address every minute; if it fails twice, every screen shows that the internet from your
+              provider is down, with the support phone to call.
+            </CardDescription>
+          </CardHeader>
+          <CardContent><ServiceSettingsForm values={service} /></CardContent>
         </Card>
         <Card className="lg:col-span-2">
           <CardHeader>

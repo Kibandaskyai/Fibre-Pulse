@@ -213,7 +213,12 @@ export async function buildWorld(): Promise<World> {
 
   const tenantA = await register(ownerA, "Kilimani Fibre Test", `kilimani-${runId}`);
   const tenantB = await register(ownerB, "Ruaka Net Test", `ruaka-${runId}`);
-  await pool.query(`update tenants set status = 'active' where id in ($1, $2)`, [tenantA, tenantB]);
+  // New ISPs accept M-Pesa only (pilot rule); these generic test ISPs accept
+  // every method so the bank-transfer paths stay covered.
+  await pool.query(
+    `update tenants set status = 'active', settings = settings || '{"payment_methods":["mpesa","bank_transfer","other"]}'::jsonb where id in ($1, $2)`,
+    [tenantA, tenantB],
+  );
 
   await addMember(tenantA, financeA, "finance");
   await addMember(tenantA, networkA, "network_admin");

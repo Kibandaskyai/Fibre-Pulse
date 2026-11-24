@@ -97,3 +97,36 @@ export function isoToKenyaLocal(value: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return "";
   return new Date(d.getTime() + 3 * 3600_000).toISOString().slice(0, 16);
 }
+
+/** Hotspot plan length: 60 -> "1 hour", 1440 -> "24 hours", 4320 -> "3 days", 43200 -> "30 days". */
+/** Data in MB as people say it: "500 MB", "1 GB", "1.5 GB". */
+export function formatData(mb: number | null | undefined): string {
+  const m = Number(mb ?? 0);
+  if (!(m > 0)) return "—";
+  if (m < 1024) return `${Math.round(m)} MB`;
+  const gb = m / 1024;
+  return `${Number.isInteger(gb) ? gb : gb.toFixed(1).replace(/\.0$/, "")} GB`;
+}
+
+export function formatPlanDuration(minutes: number | null | undefined): string {
+  const m = Number(minutes ?? 0);
+  if (!m) return "—";
+  if (m < 60) return plural(m, "minute");
+  if (m <= 1440 && m % 60 === 0) return plural(m / 60, "hour");
+  if (m % 1440 === 0) return plural(m / 1440, "day");
+  if (m % 60 === 0) return plural(m / 60, "hour");
+  return plural(m, "minute");
+}
+
+/** Time left until an instant: "3 h 20 min", "2 days 4 h", "ended". */
+export function timeLeft(until: string | null | undefined, now = Date.now()): string {
+  if (!until) return "—";
+  const s = Math.floor((new Date(until).getTime() - now) / 1000);
+  if (s <= 0) return "ended";
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const min = Math.floor((s % 3600) / 60);
+  if (d) return `${d} ${d === 1 ? "day" : "days"}${h ? ` ${h} h` : ""}`;
+  if (h) return `${h} h${min ? ` ${min} min` : ""}`;
+  return `${Math.max(min, 1)} min`;
+}

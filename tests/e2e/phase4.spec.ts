@@ -138,8 +138,24 @@ test.describe.serial("network monitoring", () => {
       await card.getByRole("button", { name: "Turn on" }).click();
       await expect(card.getByRole("button", { name: "Turn off" })).toBeVisible();
     }
+    // No PPPoE plans are seeded (prices still to come), so make one and put the customer on it.
+    const planName = `E2E PPPoE ${stamp}`;
+    await page.goto("/packages/new");
+    await page.getByLabel("Package name").fill(planName);
+    await page.getByLabel("Download speed (Mbps)").fill("10");
+    await page.getByLabel("Upload speed (Mbps)").fill("10");
+    await page.getByLabel("Price (Ksh)").fill("1000");
+    await page.getByRole("button", { name: "Create package" }).click();
+    await page.waitForURL(/\/packages\?created=1/);
     await page.goto("/customers?q=sim-kasarani-cor-02");
     await page.locator('tbody a[href^="/customers/"]').first().click();
+    await expect(page.getByText("Suspending disconnects this customer on the router")).toBeVisible();
+    if (!(await page.getByLabel("Reason for suspending").count())) {
+      const value = await page.locator("#buy-package option", { hasText: planName }).getAttribute("value");
+      await page.getByLabel("Package").selectOption(value!);
+      await page.getByRole("button", { name: "Activate" }).click();
+      await expect(page.getByText("Package activated and invoice issued.")).toBeVisible();
+    }
     await expect(page.getByText("Suspending disconnects this customer on the router")).toBeVisible();
     {
       await page.getByLabel("Reason for suspending").fill("E2E: unpaid invoice");

@@ -135,6 +135,24 @@ Health check: `curl http://10.0.0.5:18120/health` returns the number of customer
 
 **For the engineer:** test with one customer before switching the pilot over: renew, let the package expire, then suspend and restore. Accounting (session start and stop) still goes to the ISP's RADIUS. FibrePulse reads sessions from the router API, not from RADIUS accounting.
 
+## Hotspot (Phase 8)
+
+Hotspot users buy a code for one device. The router's hotspot asks RADIUS, and RADIUS asks the connector, as for PPPoE, but the connector itself answers for codes:
+
+- The rlm_rest body must also send the device MAC: `data = "{\"username\": \"%{User-Name}\", \"mac\": \"%{Calling-Station-Id}\"}"`.
+- For a valid code the connector returns `200` with `control:Cleartext-Password` (the code, so FreeRADIUS can check PAP or CHAP without a password file), `reply:Session-Timeout` (seconds left; the router cuts the user off at zero) and `reply:Mikrotik-Rate-Limit`. A code used on another device, or with no time left, gets `401` with a message. The first login is remembered on disk, so time keeps counting even if the link to FibrePulse is down.
+- Limited plans also get `reply:Mikrotik-Total-Limit` and `reply:Mikrotik-Total-Limit-Gigawords` (data left, upload plus download), so the router ends the session when the data runs out. FibrePulse also counts data from the sessions the connector reports and ends the code ("Data used up"); the data left in the connector's list is refreshed at most every 5 minutes.
+- The end time comes from FibrePulse (time runs from payment). For ISPs that choose "first login", the connector starts the clock itself at the first login and remembers it on disk.
+- In `sites-enabled/default`, call `fibrepulse` for hotspot requests even when no other module found the user (the code is not in `sql` or `files`).
+- On the router: `/ip hotspot profile set [find] use-radius=yes login-by=http-chap,http-pap`, and `/radius add service=hotspot address=<FreeRADIUS IP> secret=<radius secret>`.
+- Login page: replace the hotspot `login.html` with a redirect to `https://<FibrePulse>/wifi/<isp>?link-login-only=$(link-login-only)&mac=$(mac)`. The FibrePulse page posts the code back to the router's login address (only private addresses are accepted).
+- Walled garden: allow the FibrePulse host and Safaricom's M-Pesa hosts so people can pay before they are online: `/ip hotspot walled-garden add dst-host=<FibrePulse host>`.
+- When a code is cancelled or its time ends while the user is online, FibrePulse queues `disconnect_hotspot`; the connector removes the user's `/ip hotspot active` entry and cookie (needs `ALLOW_ROUTER_WRITES=true`).
+
+## Internet from Safaricom
+
+Every poll the connector asks the router to ping the check address (`POST /rest/ping`, 3 packets; default 8.8.8.8, set in Settings › Organisation). Two failed checks in a row mark the line down, raise the alert "Internet from Safaricom is down at …" and show a red banner on every screen with the provider's support phone. Latency and loss are kept as metrics. If the connector stops reporting for 3 minutes, the banner says the site cannot be reached instead, because FibrePulse cannot tell. For the demo, `SIMULATE_UPSTREAM_DOWN=true npm run connector:demo` simulates an outage.
+
 ## Not measured
 
 Wi-Fi quality and optical (ONU/ONT) power need CPE (TR-069) or OLT telemetry. The NOC says "not measured" instead of showing numbers.

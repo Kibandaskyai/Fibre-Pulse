@@ -76,3 +76,10 @@
 - **RADIUS:** customer PPPoE passwords are never stored in FibrePulse. The connector's RADIUS endpoint needs a shared secret of at least 24 characters, compared in constant time. Bind it to a LAN address only. The list it serves holds usernames, an allowed flag and speeds, nothing more.
 - **Scheduled jobs** run as the database owner and are recognised by `private.is_system_job()`, which is false for every API session.
 - **SMS worker:** holds the service role key and Safaricom credentials on its own host. `outbox_claim_sms` and `outbox_mark` are executable by `service_role` only. Phone numbers are masked in its logs.
+
+## Phase 8 notes (hotspot)
+
+- The public WiFi page (`/wifi/<isp>`) can only call the four `hotspot_portal*` functions. Buying is rate-limited (3 prompts per phone per 10 minutes, 300 per ISP), a code is shown only after payment, and refused while the internet is down. The simulated payment works only for ISPs with `settings.portal_demo = true`.
+- The page posts a code back only to a private or local router address (`src/lib/hotspot-login.ts`), so it cannot be used to send codes elsewhere.
+- Hotspot buyers' phone numbers and device MAC addresses are personal data under the Kenya Data Protection Act. They are visible only to staff with `subscriptions:view`. **For the engineer:** agree a retention period with the ISP (suggested: 12 months after last use) and add a cleanup job.
+- `confirm_hotspot_payment`, `record_paybill_hotspot_payment`, `set_hotspot_checkout` and the customer SMS functions are service role only.

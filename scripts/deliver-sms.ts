@@ -1,6 +1,7 @@
 /**
  * SMS delivery worker: sends the SMS copies of notifications queued in
- * notification_outbox, through Safaricom in production.
+ * notification_outbox (staff), and WiFi codes queued in customer_sms_outbox
+ * (hotspot buyers), through Safaricom in production.
  *
  *   npm run worker:sms            run continuously (every 30 seconds)
  *   npm run worker:sms -- --once  one pass, then exit
@@ -19,6 +20,7 @@ import { LogSmsProvider, smsText, toMsisdn, type SmsProvider } from "../src/lib/
 import { SafaricomSmsProvider, safaricomConfig } from "../src/lib/sms/safaricom";
 
 type Row = { id: string; phone: string | null; title: string; body: string | null; attempts: number };
+type CustomerRow = { id: string; phone: string | null; body: string; attempts: number };
 
 function provider(): SmsProvider {
   const name = process.env.SMS_PROVIDER ?? "log";
@@ -46,7 +48,25 @@ async function pass(db: SupabaseClient, sms: SmsProvider) {
       await db.rpc("outbox_mark", { p_id: row.id, p_status: status, p_error: r.error });
     }
   }
-  return { claimed: ((data ?? []) as Row[]).length, sent };
+  // Hotspot codes for buyers. The body already names the ISP, so no prefix.
+  const { data: codes, error: codeError } = await db.rpc("customer_sms_claim", { p_limit: 100 });
+  if (codeError) throw new Error(`Could not read the customer SMS outbox: ${codeError.message}`);
+  for (const row of (codes ?? []) as CustomerRow[]) {
+    const to = toMsisdn(row.phone);
+    if (!to) {
+      await db.rpc("customer_sms_mark", { p_id: row.id, p_status: "skipped", p_error: "Not a valid Kenyan mobile number." });
+      continue;
+    }
+    const r = await sms.send({ to, text: row.body });
+    if (r.ok) {
+      sent += 1;
+      await db.rpc("customer_sms_mark", { p_id: row.id, p_status: "sent", p_error: null });
+    } else {
+      const status = !r.retry ? (sms.delivers ? "failed" : "skipped") : row.attempts >= 5 ? "failed" : "pending";
+      await db.rpc("customer_sms_mark", { p_id: row.id, p_status: status, p_error: r.error });
+    }
+  }
+  return { claimed: ((data ?? []) as Row[]).length + ((codes ?? []) as CustomerRow[]).length, sent };
 }
 
 async function main() {

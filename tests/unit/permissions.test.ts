@@ -36,8 +36,9 @@ describe("permission matrix", () => {
 describe("navigation", () => {
   const labels = (role: (typeof TENANT_ROLES)[number]) => visibleIspNav(permissionsForRole(role)).map((i) => i.label);
 
-  it("shows the owner all 13 main sections", () => {
-    expect(labels("owner")).toHaveLength(13);
+  it("shows the owner all 14 main sections, Hotspot included", () => {
+    expect(labels("owner")).toHaveLength(14);
+    expect(labels("owner")[1]).toBe("Hotspot");
   });
 
   it("hides money from network admins and the network from finance", () => {

@@ -11,7 +11,7 @@ import { RadiusPolicy } from "./radius.js";
 import { RouterOsClient } from "./routeros.js";
 import { simulateReading } from "./simulator.js";
 
-export const AGENT_VERSION = "0.5.0";
+export const AGENT_VERSION = "0.6.0";
 
 export class Agent {
   private cloud: CloudClient;
@@ -43,9 +43,10 @@ export class Agent {
   }
 
   async sync(): Promise<SyncResponse> {
-    this.config = await this.cloud.sync(AGENT_VERSION);
+    this.config = await this.cloud.sync(AGENT_VERSION, this.radius.version);
     this.cloudFailures = 0;
-    if (Array.isArray(this.config.radius_access)) this.radius.load(this.config.radius_access);
+    // The list only comes when it changed since the version we hold.
+    if (Array.isArray(this.config.radius_access)) this.radius.load(this.config.radius_access, undefined, true, this.config.radius_version ?? null);
     for (const cmd of this.config.commands) await this.execute(cmd);
     return this.config;
   }
@@ -89,7 +90,7 @@ export class Agent {
     const worker = async () => {
       for (let r = queue.shift(); r; r = queue.shift()) {
         if (this.cfg.simulate) {
-          out.push(simulateReading(r.id, r.name));
+          out.push(simulateReading(r.id, r.name, Date.now(), { upstreamDown: this.cfg.simulateUpstreamDown }));
           continue;
         }
         const client = this.client(r);
@@ -99,7 +100,7 @@ export class Agent {
         }
         const counters = this.counters.get(r.id) ?? new Map();
         this.counters.set(r.id, counters);
-        const reading = await pollRouter(r.id, client, counters);
+        const reading = await pollRouter(r.id, client, counters, undefined, this.config?.upstream_check_target ?? "8.8.8.8");
         if (!reading.reachable) log("warn", "router unreachable", { router: r.name, error: reading.error });
         if (reading.warnings) log("warn", "partial router read", { router: r.name, warnings: reading.warnings });
         out.push(reading);

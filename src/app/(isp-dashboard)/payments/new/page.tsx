@@ -5,6 +5,7 @@ import { requirePagePermission } from "@/lib/auth/guards";
 import { formatKsh } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { getCustomer } from "@/modules/customers/service";
+import { acceptedMethods } from "@/modules/hotspot/service";
 import { RecordPaymentForm } from "./record-payment-form";
 
 export const metadata: Metadata = { title: "Record payment" };
@@ -20,19 +21,24 @@ function kenyaNowLocal(): string {
 export default async function RecordPaymentPage({ searchParams }: { searchParams: Promise<{ customer?: string }> }) {
   const ctx = await requirePagePermission("payments:record");
   const sp = await searchParams;
-  const customer = sp.customer && /^[0-9a-f-]{36}$/i.test(sp.customer) ? await getCustomer(await createClient(), ctx.active.tenantId, sp.customer) : null;
+  const db = await createClient();
+  const [customer, methods] = await Promise.all([
+    sp.customer && /^[0-9a-f-]{36}$/i.test(sp.customer) ? getCustomer(db, ctx.active.tenantId, sp.customer) : Promise.resolve(null),
+    acceptedMethods(db, ctx.active.tenantId),
+  ]);
+  const mpesaOnly = methods.length === 1 && methods[0] === "mpesa";
   const c = customer?.ok ? customer.data : null;
 
   return (
     <>
       <PageHeader
         title="Record payment"
-        description="For money you can see in your M-Pesa or bank statement. It is saved as awaiting verification and counts as revenue only after someone verifies it."
+        description={mpesaOnly ? "For money you can see in your M-Pesa statement. It is saved as awaiting verification and counts as revenue only after someone verifies it." : "For money you can see in your M-Pesa or bank statement. It is saved as awaiting verification and counts as revenue only after someone verifies it."}
       />
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <Card>
           <CardContent className="pt-5">
-            <RecordPaymentForm customerId={c?.id ?? null} defaultTime={kenyaNowLocal()} />
+            <RecordPaymentForm customerId={c?.id ?? null} defaultTime={kenyaNowLocal()} methods={methods} />
           </CardContent>
         </Card>
         <Card className="h-fit">

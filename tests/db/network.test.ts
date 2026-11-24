@@ -164,7 +164,7 @@ describe("connector_ingest", () => {
       const cust = await c.query(`select router_id from customers where id = $1`, [customer]);
       expect(cust.rows[0].router_id).toBe(router);
       const metrics = await c.query(`select metric, count(*)::int as n from network_metrics where router_id = $1 group by metric order by metric`, [router]);
-      expect(Object.fromEntries(metrics.rows.map((m) => [m.metric, m.n]))).toEqual({ active_sessions: 1, cpu_load_pct: 1, memory_used_pct: 1, reachable: 1, rx_bps: 2, tx_bps: 2, uptime_seconds: 1 });
+      expect(Object.fromEntries(metrics.rows.map((m) => [m.metric, m.n]))).toEqual({ active_sessions: 1, cpu_load_pct: 1, hotspot_sessions: 1, memory_used_pct: 1, pppoe_sessions: 1, reachable: 1, rx_bps: 2, tx_bps: 2, uptime_seconds: 1 });
       // Telemetry is not written to the audit log.
       const audit = await c.query(`select count(*)::int as n from audit_logs where entity_type = 'routers' and entity_id = $1 and action = 'update'`, [router]);
       expect(audit.rows[0].n).toBe(0);

@@ -1,6 +1,6 @@
 # FibrePulse project status
 
-_Last updated: 24 November 2026 (end of Phase 7: build complete, ready for the software engineer)._
+_Last updated: 24 November 2026 (Phase 8: adapted to the pilot client's hotspot business)._
 
 Legend: **Done and tested** · **Simulated** (works, uses labelled test data) · **Not built** (planned phase in brackets).
 
@@ -9,8 +9,12 @@ Legend: **Done and tested** · **Simulated** (works, uses labelled test data) ·
 - Build the full application here first, then hand the code to a software engineer for production and live M-Pesa.
 - First customer: one pilot ISP moving off a provider that charges 3%. Multi-tenant structure kept from day one.
 - Platform fee: **2.75% of gross verified subscription collections** (pilot default, configurable per ISP agreement).
-- **No cash** payment method for the pilot. Methods: M-Pesa, bank transfer, other.
-- Pilot ISP packages (monthly, provided 23 Nov 2026): Micro 5 Mbps Ksh 1,000 · Lite 10 Mbps Ksh 1,500 · Starter 20 Mbps Ksh 2,000 · Plus 30 Mbps Ksh 2,500 · Family 40 Mbps Ksh 3,000. Used in the demo seed. Upload speed assumed equal to download until confirmed. Pilot size not provided yet.
+- **No cash** payment method for the pilot. The pilot ISP accepts **M-Pesa paybill only** (client update, 24 Nov 2026); other ISPs can choose M-Pesa, bank transfer or other in Settings › Organisation.
+- Monthly packages: the first list (23 Nov 2026) was tentative and has been removed. The client's **PPPoE household plans** (24 Nov 2026), 30 days each: 10 Mbps Ksh 1,500 · 15 Mbps Ksh 2,000 · 20 Mbps Ksh 2,500 · 25 Mbps Ksh 3,000 · 40 Mbps Ksh 4,000 (upload assumed equal to download).
+- Pilot payment and support details (24 Nov 2026): M-Pesa paybill **222111**, account number **8068**, Safaricom support number **0722000111** (in the demo seed; editable in Settings › Organisation).
+- Hotspot answers (24 Nov 2026): **Limited** plans give a set amount of data for the period (e.g. 1 GB for 3 hours) and end when the data runs out or the time ends, whichever comes first; **Unlimited** plans have no data limit. A code's **time starts at payment**, so a paid code runs out even if unused. When a customer paid but got no code (e.g. the system was down), the owner issues one by hand for that M-Pesa transaction and sends it by SMS.
+- Monthly plans are **PPPoE plans for households** with their own router (Packages is now "PPPoE plans"). Plans can also be **Static IP** for future ISPs; the pilot has no static customers. Static customers are billed but not disconnected automatically yet (TODO: router address-list enforcement).
+- Client update of 24 Nov 2026: the pilot ISP buys internet from **Safaricom** and resells it along Thika Road to up to about **10,000 users**. Most are **hotspot** users who buy time per device (each phone or gadget pays separately); a minority pay monthly with their own routers. **No KRA or VAT.** Users are cut off automatically when time or the package ends. The app shows when the Safaricom internet is down and how many people are online; money is shown by day and by month. Hotspot plans (all 10 Mbps): 1 hour Ksh 10, 3 hours 15, 8 hours 30, 12 hours 40, 24 hours 50, 2 days 70, 3 days 100, 7 days 250, monthly 700.
 - Answers of 24 Nov 2026: a package that **ends without renewal disconnects** the customer (like suspension); the pilot ISP uses **RADIUS**; SMS goes through **Safaricom**; platform invoices go out **automatically** each month.
 
 ## Phase 1: Product foundation
@@ -173,6 +177,34 @@ Test totals at end of Phase 6: **79 unit tests, 256 database tests and 55 browse
 
 Test totals at end of Phase 7: **91 unit and connector tests, 276 database tests and 58 browser tests, all passing**, plus lint, typecheck and production build.
 
+## Phase 8: Hotspot customers (client update, 24 Nov 2026)
+
+| Area | Status | Evidence |
+|---|---|---|
+| Hotspot plans (time, price, speed, Limited/Unlimited label, optional data cap and router profile); the client's 9 plans in the demo seed | Done and tested | `tests/db/hotspot.test.ts`, e2e `phase8.spec.ts` |
+| Per-device access codes: one code per purchase, works on **one device** (bound to the first MAC), time runs **from payment** (an ISP can switch to first login in Settings › Organisation, where unused codes never run out), plan facts copied at purchase | Done and tested | DB and connector tests |
+| Limited plans: data for the period (set in GB per plan) is copied to each code; data used is counted from the router's sessions; the code ends ("Data used up") and is disconnected when it runs out; RADIUS gives the router the data left (`Mikrotik-Total-Limit`) so it cuts off on time. Unlimited plans have no data limit | Done and tested (data amounts per plan still to come from the client) | DB and connector tests, e2e |
+| Issuing a code by hand when a customer paid but got nothing: one code per M-Pesa transaction (tied to the payment if it already reached FibrePulse, refused if it already has a code, and a late M-Pesa confirmation never gives a second code); send or resend any code by SMS, to a new number if needed | Done and tested | DB tests, e2e |
+| Automatic cut-off: RADIUS gives the router `Session-Timeout` (seconds left), so the router ends the session itself; a job every minute marks codes expired and queues a router disconnect if a session is still open | Done and tested | `tests/connector/hotspot.test.ts`, DB tests |
+| Ways to buy: WiFi page `/wifi/<isp>` (M-Pesa prompt; **simulated** payment for the demo ISP only), paying the paybill directly (C2B, plan chosen by amount), owner sells a code after seeing the M-Pesa message, owner gives a free code with a reason | Done; live M-Pesa is the engineer's (TODO: SOFTWARE ENGINEER - IMPLEMENT SAFARICOM DARAJA INTEGRATION) | DB tests, e2e |
+| Outage compensation (add minutes to every running code, audited), cancel a code with a reason | Done and tested | DB tests |
+| M-Pesa only: a database guard refuses any other payment method for ISPs that accept M-Pesa only; the record-payment form shows only accepted methods | Done and tested | DB tests, e2e |
+| "Internet from Safaricom is down": the router pings a check address (default 8.8.8.8) every poll; two failures raise an alert and a red banner on every screen with the provider's phone. If the connector itself stops reporting, the banner says the site cannot be reached instead | Done and tested | DB and connector tests (`SIMULATE_UPSTREAM_DOWN=true` for the demo) |
+| People online (hotspot + monthly) on the overview and hotspot pages; hidden when the site cannot be reached rather than showing a stale number | Done and tested | DB tests |
+| Money by day (this month) and by month, hotspot and monthly customers apart, on the overview and the revenue page | Done and tested | DB tests, e2e |
+| VAT and KRA removed from forms and invoices (old invoices with tax still show it) | Done | e2e |
+| Scale: 3,000 devices online and 10,000 codes on file: first connector report about 1 s, then about 0.15 s each minute; the RADIUS list is only re-sent when it changes | Done and tested | `tests/db/hotspot.test.ts` › scale |
+| Hotspot codes by SMS through the same worker (`customer_sms_outbox`) | Built; Safaricom SMS waits for the contract | — |
+| PPPoE household plans (Packages renamed "PPPoE plans"); Static IP kept as a plan type for future ISPs (billed, not disconnected automatically yet) | Done | e2e |
+
+Test totals after Phase 8: **413 unit, connector and database tests and 68 browser tests, all passing**, plus lint, typecheck and production build.
+
+### Open questions for the pilot ISP (Phase 8)
+
+- How much data does each Limited plan give (1 hour, 3 hours, 8 hours, 12 hours, 24 hours)? Until set, a Limited plan works like Unlimited and the plans page says so.
+- PPPoE plans: is upload the same speed as download?
+- Not built until asked: themes for the login page, burst speeds, agent commissions, Happy Hour, pay-later, expenses.
+
 ## Not built yet
 
 | Module | Phase |
@@ -185,5 +217,6 @@ Test totals at end of Phase 7: **91 unit and connector tests, 276 database tests
 
 - Invitation emails are not sent yet; the owner tells the person to sign up with the invited email.
 - Notifications are delivered in-app only until the Safaricom SMS contract is wired in and an email provider is chosen; copies wait in `notification_outbox`.
-- Cancelling a package does not disconnect (not decided). Hotspot users are not disconnected.
+- Cancelling a package does not disconnect (not decided).
+- Hotspot users identified by MAC address: phones that randomise their MAC per network keep one address for that network, but a factory reset or a new phone needs a new code.
 - No hosted Supabase project yet; everything runs locally.

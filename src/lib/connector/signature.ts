@@ -15,7 +15,8 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 export const HEADER_TIMESTAMP = "x-fibrepulse-timestamp";
 export const HEADER_NONCE = "x-fibrepulse-nonce";
 export const HEADER_SIGNATURE = "x-fibrepulse-signature";
-export const MAX_BODY_BYTES = 2 * 1024 * 1024;
+// A hotspot router with several thousand online devices sends ~1 MB per reading.
+export const MAX_BODY_BYTES = 8 * 1024 * 1024;
 
 export function canonical(ts: string, nonce: string, method: string, path: string, body: string): string {
   return [ts, nonce, method.toUpperCase(), path, createHash("sha256").update(body).digest("hex")].join("\n");

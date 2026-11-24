@@ -10,8 +10,18 @@ import { connectorDb, dbFailure, readConnectorRequest } from "@/lib/connector/ha
 export async function POST(request: NextRequest) {
   const req = await readConnectorRequest(request);
   if (req instanceof NextResponse) return req;
-  const version = typeof (req.body as { version?: unknown }).version === "string" ? String((req.body as { version: string }).version).slice(0, 40) : null;
-  const { data, error } = await connectorDb().rpc("connector_sync", { p_token: req.token, p_nonce: req.nonce, p_ts: req.ts, p_version: version });
+  const body = req.body as { version?: unknown; radius_version?: unknown };
+  const version = typeof body.version === "string" ? body.version.slice(0, 40) : null;
+  // The RADIUS list (PPPoE customers and hotspot codes) is only sent when it
+  // changed since the version the connector already holds.
+  const radiusVersion = typeof body.radius_version === "string" ? body.radius_version.slice(0, 64) : null;
+  const { data, error } = await connectorDb().rpc("connector_sync", {
+    p_token: req.token,
+    p_nonce: req.nonce,
+    p_ts: req.ts,
+    p_version: version,
+    p_radius_version: radiusVersion,
+  });
   if (error) return dbFailure(error);
 
   const config = data as { routers: { secret: string | null; key_version: number | null; [k: string]: unknown }[]; [k: string]: unknown };

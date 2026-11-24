@@ -10,7 +10,7 @@ export default async function NewPackagePage() {
   await requirePagePermission("packages:edit");
   return (
     <>
-      <PageHeader title="New package" description="Customers can be put on this package as soon as it is created." />
+      <PageHeader title="New PPPoE plan" description="A monthly plan for households with their own router. Customers can be put on it as soon as it is created." />
       <Card className="max-w-2xl">
         <CardContent className="pt-5">
           <PackageForm />

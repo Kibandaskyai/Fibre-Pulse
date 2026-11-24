@@ -30,7 +30,9 @@ The exact permission matrix is in `src/lib/auth/permissions.ts` (mirrored in SQL
 | Scope | One pilot client first, multi-tenant structure kept |
 | Fee basis | 2.75% of **gross** verified subscription collections |
 | Cash payments | **None.** Payment methods are M-Pesa, bank transfer, other |
-| Pilot packages, prices, size | Not yet provided; fictional data until then |
+| Pilot packages, prices, size | Hotspot plans and about 10,000 users given 24 Nov; the 23 Nov monthly list was tentative and removed; monthly prices to come |
+| Hotspot (24 Nov) | Per-device time codes, automatic cut-off, M-Pesa paybill only, no KRA or VAT |
+| Upstream (24 Nov) | Safaricom; show "network unavailable" when it is down, and people online |
 
 ## Assumptions (change if wrong)
 
