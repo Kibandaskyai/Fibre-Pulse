@@ -11,6 +11,34 @@ Start with [PROJECT_STATUS.md](../PROJECT_STATUS.md), then [SYSTEM_ARCHITECTURE.
 - Anything that moves money or changes a subscription's state is a SECURITY DEFINER function in migration `20261124000100`, which checks the permission itself and sets the audit reason. There are deliberately no direct write policies for those tables; add a function, not a policy.
 - Forms use `useFormAction` from `src/components/shared/form-bits.tsx`, which keeps typed values after a validation error (React's default form action resets the form).
 
+## What is left for you (as of 24 Nov 2026)
+
+Everything else in the spec is built and tested (see PROJECT_STATUS.md). These items need accounts, contracts or decisions that only the business can provide:
+
+| # | Work | Where to start | Blocked on |
+|---|---|---|---|
+| 1 | **Live M-Pesa (Daraja):** STK push, the C2B/STK callback, and automatic verification of callback payments | `src/lib/integrations/payments/provider.ts`, `src/app/api/payments/mpesa/*`, docs/MPESA_INTEGRATION_HANDOVER.md | Daraja production app, shortcode, passkey |
+| 2 | **Safaricom SMS:** the request and response in `buildRequest()` / `parseResponse()` | `src/lib/sms/safaricom.ts` (the worker, retries, outbox, phone format and tests are done) | Safaricom Bulk SMS contract and sender ID |
+| 3 | **Email delivery** for notifications and staff invitations | Same outbox (`channel = 'email'`); `src/modules/tenants/actions.ts` | Choice of email provider |
+| 4 | **Hosting:** Supabase project, Vercel, SMS worker host, connector machine at the ISP | docs/DEPLOYMENT_GUIDE.md | Accounts and domain |
+| 5 | **RADIUS go-live:** confirm the FreeRADIUS `rest` config against the ISP's version and test one customer | docs/MIKROTIK_INTEGRATION.md › RADIUS | Access to the ISP's RADIUS server |
+| 6 | **Invoice details:** FibrePulse legal name, KRA PIN, VAT, paybill; PDF download and email of platform invoices | `src/components/platform/invoice-document.tsx` | Company registration details |
+| 7 | **Map tiles:** a commercial tile provider for production | `src/components/map/network-map.tsx` | Provider choice |
+| 8 | **MFA** for platform administrators (Supabase Auth MFA) | auth pages | none |
+
+The old comment in migration `20261127000100` mentions Africa's Talking for SMS. That comment is superseded: the pilot chose **Safaricom**. Do not edit applied migrations; this note is the correction.
+
+## Background jobs
+
+| Job | Runs | Where |
+|---|---|---|
+| Expire packages whose period ended (queues disconnects) | every 5 minutes | `pg_cron` `fibrepulse-expire-subscriptions` → `private.scheduled_expiry()` |
+| Monthly platform billing: calculate last month for every ISP, issue invoices (due in 14 days) | 1st of the month, 03:00 UTC (06:00 EAT) | `pg_cron` `fibrepulse-monthly-billing` → `admin_run_monthly_billing`; each run is recorded in `platform_billing_runs` |
+| Connector watchdog (offline routers/connectors, re-sending commands) | on every connector call and page load | migration `20261126000100` |
+| SMS delivery | every 30 seconds | `npm run worker:sms` (separate process, service role) |
+
+Scheduled database jobs run with no signed-in user. They mark themselves with the transaction setting `fibrepulse.system_job`, which `private.is_system_job()` honours only when the session user is the database owner. API callers connect as `authenticator`, so they can never use it.
+
 ## Searching for unfinished work
 
 ```bash

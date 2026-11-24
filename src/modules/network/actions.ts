@@ -133,3 +133,19 @@ export async function setRouterEnforcementAction(_prev: ActionResult | null, for
     };
   });
 }
+
+export async function setAccessControlAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  return guarded("settings:manage", async (tenantId) => {
+    const mode = formData.get("mode") === "radius" ? "radius" : "router_secrets";
+    const res = await network.setAccessControl(await createClient(), tenantId, mode);
+    if (!res.ok) return res;
+    revalidatePath("/settings/organisation");
+    return {
+      ok: true,
+      message:
+        mode === "radius"
+          ? "Saved: RADIUS. The connector now tells your RADIUS server who may connect; a disconnect drops the live session."
+          : "Saved: router PPPoE secrets. A disconnect disables the customer's secret on the router.",
+    };
+  });
+}

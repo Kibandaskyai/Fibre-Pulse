@@ -1,6 +1,6 @@
 # FibrePulse project status
 
-_Last updated: 24 November 2026 (end of Phase 6)._
+_Last updated: 24 November 2026 (end of Phase 7: build complete, ready for the software engineer)._
 
 Legend: **Done and tested** · **Simulated** (works, uses labelled test data) · **Not built** (planned phase in brackets).
 
@@ -11,6 +11,7 @@ Legend: **Done and tested** · **Simulated** (works, uses labelled test data) ·
 - Platform fee: **2.75% of gross verified subscription collections** (pilot default, configurable per ISP agreement).
 - **No cash** payment method for the pilot. Methods: M-Pesa, bank transfer, other.
 - Pilot ISP packages (monthly, provided 23 Nov 2026): Micro 5 Mbps Ksh 1,000 · Lite 10 Mbps Ksh 1,500 · Starter 20 Mbps Ksh 2,000 · Plus 30 Mbps Ksh 2,500 · Family 40 Mbps Ksh 3,000. Used in the demo seed. Upload speed assumed equal to download until confirmed. Pilot size not provided yet.
+- Answers of 24 Nov 2026: a package that **ends without renewal disconnects** the customer (like suspension); the pilot ISP uses **RADIUS**; SMS goes through **Safaricom**; platform invoices go out **automatically** each month.
 
 ## Phase 1: Product foundation
 
@@ -158,16 +159,31 @@ Test totals at end of Phase 6: **79 unit tests, 256 database tests and 55 browse
 - FibrePulse's legal name, KRA PIN, address and paybill/bank details for the invoice.
 - Should invoices be issued automatically each month, or stay a manual step? Should a PDF be emailed?
 
+## Phase 7: Testing, automation and handover
+
+| Area | Status | Evidence |
+|---|---|---|
+| Expired packages disconnect (same three switches as suspension); renewing reconnects; early replacement never disconnects | Done and tested | `tests/db/automation.test.ts` |
+| Scheduled expiry for every ISP every 5 minutes (`pg_cron`), not only when a screen loads | Done and tested | DB test (schedule installed, job runs) |
+| RADIUS access control: owner setting; the connector serves "who may connect, at what speed" to FreeRADIUS (`rlm_rest`) from FibrePulse data, cached on disk; disconnect drops the live session only; passwords stay in the ISP's RADIUS | Done and tested (FreeRADIUS config to confirm on site) | `tests/connector/radius.test.ts`, DB and e2e tests |
+| Automatic monthly platform billing on the 1st at 06:00 EAT: fees for every ISP, invoices for each ISP with fees waiting; every run recorded and shown on *Platform Invoices* | Done and tested | DB tests (manual run, scheduled run, permissions), e2e |
+| SMS delivery worker (`npm run worker:sms`): claims SMS copies from the outbox, Kenyan number format, one 160-character SMS, retries, never marks unsent messages as sent; Safaricom provider with token handling | Built; Safaricom request body waits for the contract | `tests/unit/sms.test.ts`, DB tests |
+| Security sweep driven by the database catalogue: no ISP sees another ISP's rows in any table; outsiders see nothing; platform staff see no ISP customer, payment or network rows without a grant; RLS on every table; the public can write nothing and call only the connector functions; every SECURITY DEFINER function pins `search_path` | Done and tested | `tests/db/security-sweep.test.ts` |
+| Deployment guide, engineer handover list, RADIUS guide | Done | docs/DEPLOYMENT_GUIDE.md, docs/DEVELOPER_HANDOVER.md, docs/MIKROTIK_INTEGRATION.md |
+
+Test totals at end of Phase 7: **91 unit and connector tests, 276 database tests and 58 browser tests, all passing**, plus lint, typecheck and production build.
+
 ## Not built yet
 
 | Module | Phase |
 |---|---|
-| Email and SMS delivery for notifications (queue exists) | Software engineer |
+| Safaricom SMS request/response (worker and outbox done) and email delivery | Software engineer |
 | Invoice PDF, FibrePulse legal and tax details on invoices, paying platform invoices by M-Pesa | Software engineer |
 | Live Safaricom Daraja / M-Pesa | Software engineer (see docs/MPESA_INTEGRATION_HANDOVER.md) |
 
 ## Known limitations
 
 - Invitation emails are not sent yet; the owner tells the person to sign up with the invited email.
-- Notifications are delivered in-app only; email and SMS copies wait in `notification_outbox`.
+- Notifications are delivered in-app only until the Safaricom SMS contract is wired in and an email provider is chosen; copies wait in `notification_outbox`.
+- Cancelling a package does not disconnect (not decided). Hotspot users are not disconnected.
 - No hosted Supabase project yet; everything runs locally.

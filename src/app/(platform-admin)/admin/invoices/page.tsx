@@ -7,9 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PlatformInvoiceBadge } from "@/components/platform/platform-badges";
 import { PageHeader } from "@/components/shared/page-header";
 import { requirePlatformStaff } from "@/lib/auth/guards";
-import { formatDate, formatKsh, kenyaToday } from "@/lib/format";
+import { formatDate, formatDateTime, formatKsh, kenyaToday } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import { invoicesFor, invoiceState, ispRevenue } from "@/modules/platform/billing";
+import { billingRuns, invoicesFor, invoiceState, ispRevenue } from "@/modules/platform/billing";
 import { CalculateAllForm } from "../billing-forms";
 
 export const metadata: Metadata = { title: "Platform invoices" };
@@ -30,7 +30,7 @@ export default async function PlatformInvoicesPage({ searchParams }: { searchPar
   const d = new Date(`${today.slice(0, 7)}-01T00:00:00Z`);
   d.setUTCMonth(d.getUTCMonth() - 1);
   const lastMonth = d.toISOString().slice(0, 7);
-  const [invoices, isps] = await Promise.all([invoicesFor(db, undefined, status), ispRevenue(db)]);
+  const [invoices, isps, runs] = await Promise.all([invoicesFor(db, undefined, status), ispRevenue(db), billingRuns(db)]);
   const waiting = isps.ok ? isps.data.filter((r) => r.fees_uninvoiced > 0) : [];
 
   return (
@@ -39,10 +39,32 @@ export default async function PlatformInvoicesPage({ searchParams }: { searchPar
       <div className="mb-6 grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Monthly fee run</CardTitle>
-            <CardDescription>Run after each month ends. Safe to repeat: unchanged months stay as they are and changes become adjustments.</CardDescription>
+            <CardTitle>Monthly billing</CardTitle>
+            <CardDescription>
+              Automatic: on the 1st of every month at 6:00 AM, last month&apos;s fees are calculated for every ISP and each ISP with fees
+              waiting gets an invoice (due in 14 days). You can also recalculate a month by hand; it is safe to repeat.
+            </CardDescription>
           </CardHeader>
-          <CardContent><CalculateAllForm defaultMonth={lastMonth} maxMonth={lastMonth} /></CardContent>
+          <CardContent className="grid gap-4">
+            <CalculateAllForm defaultMonth={lastMonth} maxMonth={lastMonth} />
+            <div data-testid="billing-runs">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Recent runs</p>
+              {runs.ok && runs.data.length ? (
+                <ul className="grid gap-1 text-sm">
+                  {runs.data.map((r) => (
+                    <li key={r.id} className="flex flex-wrap justify-between gap-2">
+                      <span>{formatDateTime(r.started_at)} · {r.trigger === "schedule" ? "automatic" : "by hand"}</span>
+                      <span className={r.failures ? "text-danger" : "text-muted-foreground"}>
+                        {r.finished_at ? `${r.invoices} invoice${r.invoices === 1 ? "" : "s"}${r.failures ? `, ${r.failures} problem${r.failures === 1 ? "" : "s"}` : ""}` : "running"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">No automatic run yet. The first one is on the 1st of next month.</p>
+              )}
+            </div>
+          </CardContent>
         </Card>
         <Card>
           <CardHeader>

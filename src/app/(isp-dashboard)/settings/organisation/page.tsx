@@ -6,6 +6,7 @@ import { requirePagePermission } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { OrganisationForm } from "./organisation-form";
 import { EnforcementForm } from "./enforcement-form";
+import { AccessControlForm } from "./access-control-form";
 
 export const metadata: Metadata = { title: "Organisation" };
 
@@ -17,7 +18,9 @@ export default async function OrganisationPage() {
     .select("name, legal_name, county, town, contact_phone, slug, status, currency, timezone, settings")
     .eq("id", ctx.active.tenantId)
     .single();
-  const enforcement = Boolean((t?.settings as { router_enforcement?: boolean } | null)?.router_enforcement);
+  const settings = (t?.settings ?? {}) as { router_enforcement?: boolean; access_control?: string };
+  const enforcement = Boolean(settings.router_enforcement);
+  const accessMode = settings.access_control === "radius" ? "radius" : "router_secrets";
 
   return (
     <>
@@ -49,14 +52,25 @@ export default async function OrganisationPage() {
         </Card>
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Disconnect suspended customers on the router</CardTitle>
+            <CardTitle>Disconnect customers who are suspended or whose package has ended</CardTitle>
             <CardDescription>
-              When on, suspending a customer tells the FibrePulse Connector to disable their PPPoE account on the MikroTik router and drop their
-              session, and restoring turns it back on. Nothing else on the router is ever changed. The connector must also have
+              When on, suspending a customer, or a package running out without renewal, tells the FibrePulse Connector to cut their
+              service; restoring or renewing lets them back on. Nothing else on the router is ever changed. The connector must also have
               ALLOW_ROUTER_WRITES=true and its router user needs the write policy. Only the owner can change this.
             </CardDescription>
           </CardHeader>
           <CardContent><EnforcementForm key={String(enforcement)} enabled={enforcement} /></CardContent>
+        </Card>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Access control</CardTitle>
+            <CardDescription>
+              With PPPoE secrets on the router, a disconnect disables the customer&apos;s secret. With RADIUS, the connector tells your RADIUS
+              server who has a live package and at what speed (passwords stay in your RADIUS), and a disconnect only drops the live session.
+              See the connector guide for the FreeRADIUS settings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent><AccessControlForm mode={accessMode} /></CardContent>
         </Card>
       </div>
     </>
